@@ -1,0 +1,173 @@
+/* Doctor card (hero, right side).
+   Plain CSS on purpose — it doesn't depend on Tailwind picking up this file.
+   The card is a size container, so everything is measured in `cqw` (1% of the
+   card's own width): the whole composition scales with the space the hero gives it. */
+
+.dc {
+  container-type: inline-size;
+  position: relative;
+  width: 100%;
+  max-width: 600px;
+  margin-inline: auto;
+  --dc-extend: 7cqw;      /* how far the photo sticks out above the eyebrow and below the bio */
+}
+@media (min-width: 1024px) { .dc { margin-right: 0; margin-left: auto; } }
+
+.dc-grid {
+  display: grid;
+  grid-template-columns: 1fr 50cqw;
+  column-gap: 6cqw;
+  align-items: stretch;
+}
+
+/* ── photo ── */
+/* the photo stretches to the text column's height, plus --dc-extend above and below it */
+.dc-visual { position: relative; width: 100%; margin-block: calc(var(--dc-extend) * -1); perspective: 900px; }
+.dc-ring {
+  position: absolute; left: -5cqw; top: -5cqw; width: calc(100% + 10cqw); height: auto;
+  color: #5a8a6a; opacity: .7; pointer-events: none;
+  animation: dc-spin 40s linear infinite;
+}
+.dc-arch { position: relative; height: 100%; transform-style: preserve-3d; will-change: transform; }
+.dc-arch-clip {
+  position: relative; width: 100%; height: 100%; min-height: 70cqw; overflow: hidden;
+  border-radius: 25cqw 25cqw 3cqw 3cqw; background: #dff0e6;
+  box-shadow: 0 30px 60px -24px rgba(33,37,41,.35), 0 0 0 6px rgba(255,255,255,.7);
+}
+/* ── pop-out cut-out ──
+   Sits on the arch's bottom edge, wider than the arch (tune --dc-photo-w) so the head can rise above the curve
+   and the shoulders spill past the sides. The clip-path has negative insets (it lets the picture escape the
+   box) but a flat bottom (0), so the doctor still looks planted on the arch's base. */
+.dc-cut {
+  --dc-photo-w: 110%;
+  position: absolute; z-index: 1; left: 0; right: 0; bottom: 0;
+  display: flex; justify-content: center;
+  transform: translateZ(40px);                       /* real depth when the arch tilts */
+  clip-path: inset(-70% -45% 0 -45%);
+  filter: drop-shadow(0 22px 20px rgba(33,37,41,.28)) drop-shadow(0 4px 6px rgba(33,37,41,.18));
+}
+.dc-cut-inner { position: relative; flex: none; width: var(--dc-photo-w); }
+.dc-photo { display: block; width: 100%; height: auto; user-select: none; }
+.dc-cut-inner.is-fx .dc-photo { visibility: hidden; }   /* the WebGL canvas takes over once it's ready */
+.dc-fx { position: absolute; inset: 0; display: block; width: 100%; height: 100%; pointer-events: none; }
+
+/* ── soft focus pull (HOVER_EFFECT = 'focus') ──
+   The second photo sits exactly on top of the first. Hover: first one blurs out, second sharpens in. */
+.dc-cut-inner > .dc-photo {
+  transform-origin: 50% 100%;
+  transition: opacity .55s ease, filter .65s cubic-bezier(.22,.61,.36,1), transform .85s cubic-bezier(.22,.61,.36,1);
+}
+.dc-photo-alt {
+  position: absolute; left: 0; bottom: 0; width: 100%; height: 100%;
+  object-fit: cover; object-position: center bottom; pointer-events: none; user-select: none;
+  transform-origin: 50% 100%; opacity: 0; filter: blur(14px); transform: scale(1.05);
+  transition: opacity .7s ease .1s, filter .8s cubic-bezier(.22,.61,.36,1) .1s, transform .9s cubic-bezier(.22,.61,.36,1) .1s;
+}
+.dc-cut-inner.is-alt > .dc-photo { opacity: 0; filter: blur(14px); transform: scale(1.05); }
+.dc-cut-inner.is-alt > .dc-photo-alt { opacity: 1; filter: blur(0); transform: scale(1); }
+.dc-badge {
+  position: absolute; right: -2.5cqw; bottom: calc(var(--dc-extend) + 5cqw); z-index: 2;
+  display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+  padding: 8px 15px; border-radius: 999px; border: 1px solid #dde4da; background: #fbfcfa;
+  font-size: 12px; font-weight: 500; letter-spacing: .02em; color: #212529;
+  box-shadow: 0 10px 24px -10px rgba(33,37,41,.35);
+}
+.dc-badge-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: #5a8a6a;
+  box-shadow: 0 0 0 0 rgba(90,138,106,.5); animation: dc-pulse 2s infinite;
+}
+
+/* ── text: sits to the left of the photo, right-aligned; the name plate overlaps the photo edge ── */
+.dc-text {
+  position: relative; z-index: 3;
+  display: flex; flex-direction: column; align-items: flex-end; text-align: right;
+}
+.dc-eyebrow {
+  margin: 0 0 14px; font-size: 11.5px; font-weight: 600; letter-spacing: .12em;
+  text-transform: uppercase; color: #6c757d;
+}
+.dc-plate {
+  margin: 0 -14cqw 3cqw 0; padding: 2.8cqw 5.5cqw 1.8cqw 4.5cqw; border-radius: 3.4cqw;
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(#fbfcfa, #fbfcfa) padding-box,
+    conic-gradient(from var(--dc-angle), #5a8a6a, rgba(90,138,106,.08) 35%, #5a8a6a 70%, rgba(90,138,106,.08)) border-box;
+  box-shadow: 0 24px 50px -22px rgba(33,37,41,.35);
+  animation: dc-angle 7s linear infinite;
+}
+.dc-name {
+  margin: 0; font-family: 'DM Serif Display', Georgia, serif; font-weight: 400;
+  font-size: clamp(20px, 5.4cqw, 36px); line-height: 1.08; letter-spacing: -.01em; color: #212529;
+}
+.dc-line { display: block; overflow: hidden; padding-bottom: .12em; }
+.dc-line > span { display: block; }
+.dc-line-accent > span { font-style: italic; color: #5a8a6a; }
+.dc-bio {
+  margin: 0 0 3.5cqw; font-size: clamp(12.5px, 2.45cqw, 15.5px); line-height: 1.75; color: #495057;
+}
+/* "Show more" is a phone-only control (switched on in the phone block below) */
+.dc-ellipsis { display: none; }
+.dc-more-btn { display: none; }
+
+.dc .is-paused { animation-play-state: paused !important; }
+
+@property --dc-angle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+@keyframes dc-angle { to { --dc-angle: 360deg; } }
+@keyframes dc-spin { to { transform: rotate(360deg); } }
+@keyframes dc-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(90,138,106,.5); }
+  70% { box-shadow: 0 0 0 8px rgba(90,138,106,0); }
+  100% { box-shadow: 0 0 0 0 rgba(90,138,106,0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dc-ring, .dc-plate, .dc-badge-dot { animation: none; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   PHONES  (kept at the end so it overrides the rules above)
+
+   1. A bare `1fr` column can't shrink below its content, so it's `minmax(0, 1fr)` here.
+   2. The bio is cut to about half, with a "Show more" link, so the text column is short.
+   3. The arch no longer stretches to the text height. It is a fixed, shorter shape
+      (aspect-ratio below) and the cut-out portrait is taller than it, so the doctor
+      rises above the curve and overlaps it, like on desktop.
+      → more overlap: make the second number of the arch aspect-ratio smaller (e.g. 1 / 1)
+      → less overlap: make it bigger (e.g. 1 / 1.2)
+════════════════════════════════════════════════════════════ */
+@media (max-width: 639px) {
+  .dc-grid { grid-template-columns: minmax(0, 1fr) 46cqw; column-gap: 5cqw; align-items: start; }
+
+  /* photo column: shorter arch + room above it for the head that now sticks out */
+  .dc-visual { margin: 13cqw 0 0; }
+  .dc-arch { height: auto; }
+  .dc-arch-clip { height: auto; min-height: 0; aspect-ratio: 1 / 1.08; }
+  .dc-cut { --dc-photo-w: 108%; }
+  .dc-ring { left: -3cqw; top: -3cqw; width: calc(100% + 6cqw); }
+  .dc-badge { right: 0; bottom: 3cqw; padding: 7px 12px; font-size: 11px; }
+
+  /* text column: centred against the photo, and a touch tighter */
+  .dc-text { align-self: center; }
+  .dc-eyebrow { margin-bottom: 10px; }
+  .dc-bio { margin: 0 0 1.5cqw; font-size: 13px; line-height: 1.6; }
+
+  /* about half of the bio, then "…" and a link for the rest */
+  .dc-bio:not(.is-open) .dc-bio-more { display: none; }
+  .dc-bio:not(.is-open) .dc-ellipsis { display: inline; }
+  .dc-more-btn {
+    display: inline-block; margin: 0; padding: 6px 0; border: 0; background: none; cursor: pointer;
+    font: inherit; font-size: 13px; font-weight: 600; color: #5a8a6a;
+    text-decoration: underline; text-underline-offset: 3px;
+  }
+  .dc-more-btn:focus-visible { outline: 2px solid #5a8a6a; outline-offset: 3px; border-radius: 4px; }
+}
+
+/* very narrow phones (iPhone SE / 320px): stack instead of squeezing */
+@media (max-width: 339px) {
+  .dc-grid { grid-template-columns: 1fr; }
+  .dc-visual { order: -1; width: 64%; margin: 19cqw auto 0; }
+  .dc-badge { bottom: 3cqw; }
+  .dc-text { align-self: auto; align-items: center; text-align: center; margin-top: 3cqw; }
+  .dc-eyebrow { display: none; }                          /* the name plate already says who this is */
+  .dc-plate { margin: 0 0 4cqw; padding: 3.5cqw 8cqw 2.5cqw; }
+  .dc-bio { margin-inline: auto; }
+}

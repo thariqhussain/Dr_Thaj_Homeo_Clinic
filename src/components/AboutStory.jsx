@@ -1,0 +1,130 @@
+import { useEffect, useRef, useState } from 'react';
+import { gsap, ScrollTrigger } from '../lib/gsap';
+import { ABOUT_STORY } from '../data/content';
+import { prefersReducedMotion } from '../lib/utils';
+
+/* Structure 1 — sticky story.
+   Left: one arch-shaped photo stays pinned (CSS `position: sticky`, no GSAP pin).
+   Right: heading + a stack of cards. The card crossing 60% of the viewport
+   becomes `active`; that single index drives the photo, counter, caption and
+   progress bars. Mobile: the photo becomes a short strip pinned under the navbar.
+
+   NOTE: no `overflow-hidden` on <section> — it would break `position: sticky`.
+   `overflow-x-clip` hides the orbs without creating a scroll container. */
+
+const N = ABOUT_STORY.length;
+const pad = (i) => String(i + 1).padStart(2, '0');
+
+export default function AboutStory() {
+  const section = useRef(null);
+  const [active, setActive] = useState(0);
+
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      section.current.querySelectorAll('.as-card').forEach((card, i) => {
+        ScrollTrigger.create({
+          trigger: card, start: 'top 60%', end: 'bottom 60%',
+          onToggle: (self) => { if (self.isActive) setActive(i); },
+        });
+      });
+      if (!prefersReducedMotion()) {
+        gsap.from('.as-head > *', {
+          y: 20, opacity: 0, duration: 0.8, stagger: 0.1, ease: 'power3.out',
+          scrollTrigger: { trigger: '.as-head', start: 'top 85%', once: true },
+        });
+      }
+    }, section);
+    return () => ctx.revert();
+  }, []);
+
+  return (
+    <section
+      id="about" ref={section} aria-labelledby="as-title"
+      className="relative mx-2.5 mt-8 overflow-x-clip rounded-[18px] border border-accent/20 bg-[linear-gradient(160deg,#f7f9f5_0%,#e7efe5_100%)] px-12 py-[100px]
+                 max-lg:px-8 max-lg:py-[72px] max-sm:px-4 max-sm:py-14 max-[375px]:px-3 max-[320px]:px-2.5"
+    >
+      <span aria-hidden="true" className="orb z-0 -left-24 top-1/3 h-[340px] w-[340px] bg-accent/[.22]" />
+      <span aria-hidden="true" className="orb z-0 -bottom-24 -right-16 h-[300px] w-[300px] bg-accent-light/90" />
+
+      <div className="relative z-[1] mx-auto flex max-w-[1240px] flex-col gap-5 lg:grid lg:grid-cols-[1.1fr_.9fr] lg:items-start lg:gap-14">
+        {/* LEFT — pinned photo (on mobile this column dissolves so the strip can stick) */}
+        <div className="max-lg:contents lg:relative lg:self-stretch">
+          <div className="sticky top-[84px] z-10 h-[210px] max-lg:order-2 max-sm:top-[72px] max-sm:h-[180px] lg:top-28 lg:h-[min(760px,calc(100svh-8rem))]">
+            <div className="relative mx-auto h-full w-full lg:max-w-[640px]">
+              <div className="relative h-full w-full overflow-hidden rounded-[18px] bg-accent-light shadow-[0_30px_60px_-24px_rgba(33,37,41,.35),0_0_0_6px_rgba(255,255,255,.7)] lg:rounded-b-[24px] lg:rounded-t-[320px]">
+                {ABOUT_STORY.map((s, i) => (
+                  <img
+                    key={s.title} src={s.img} alt={i === active ? s.caption : ''} aria-hidden={i !== active}
+                    loading={i === 0 ? 'eager' : 'lazy'} decoding="async"
+                    className={`absolute inset-0 h-full w-full object-cover [transition:opacity_.8s_ease,transform_1.2s_cubic-bezier(.22,.61,.36,1)] motion-reduce:transition-none
+                                ${i === active ? 'scale-100 opacity-100' : 'scale-110 opacity-0'}`}
+                  />
+                ))}
+                <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-p9/70 to-transparent" />
+
+                <span className="absolute left-3 top-3 z-[2] rounded-full bg-p9/55 px-3 py-1 text-[12.5px] font-semibold tabular-nums tracking-wide text-p1 backdrop-blur-sm lg:left-1/2 lg:top-7 lg:-translate-x-1/2">
+                  {pad(active)} / {pad(N - 1)}
+                </span>
+
+                <span className="glass-chip absolute bottom-9 left-4 z-[2] rounded-full px-3.5 py-1.5 text-[13px] font-medium text-white max-sm:bottom-8 max-sm:left-3 max-sm:text-xs lg:bottom-11 lg:left-6">
+                  {ABOUT_STORY[active].caption}
+                </span>
+
+                {/* segmented progress */}
+                <div className="absolute inset-x-4 bottom-3.5 z-[2] flex gap-1.5 max-sm:inset-x-3 max-sm:bottom-3 lg:inset-x-6 lg:bottom-5" aria-hidden="true">
+                  {ABOUT_STORY.map((s, i) => (
+                    <span key={s.title} className="h-[3px] flex-1 overflow-hidden rounded-full bg-white/35">
+                      <span className={`block h-full origin-left rounded-full bg-white [transition:transform_.6s_ease] motion-reduce:transition-none ${i <= active ? 'scale-x-100' : 'scale-x-0'}`} />
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* flat badge overlapping the corner (replaces the 3D object) */}
+              <div aria-hidden="true" className="absolute -bottom-5 -right-5 hidden h-[88px] w-[88px] place-items-center rounded-full border border-line bg-paper shadow-[0_18px_36px_-16px_rgba(33,37,41,.4)] lg:grid">
+                <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#5a8a6a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 19c0-9 5-14 14-14 0 9-5 14-14 14z" /><path d="M5 19c3-4 6-7 10-9" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT — heading + cards.
+            lg:pb-[20svh] keeps the photo pinned until the last card reaches the centre line,
+            so the final image is settled before the photo scrolls away with the section. */}
+        <div className="max-lg:contents lg:pb-[20svh]">
+          <header className="as-head max-lg:order-1 lg:pb-10">
+            <p className="eyebrow eyebrow-light">About the clinic</p>
+            <h2 id="as-title" className="mb-4 mt-1.5 font-display text-[clamp(30px,3.6vw,48px)] font-normal leading-[1.1] text-p9">
+              Care that sees the whole person
+            </h2>
+            <p className="max-w-[520px] text-[15.5px] leading-[1.75] text-p7 lg:text-[16.5px]">
+              Dr. Thaj Homoeo Clinic in Minjur, Chennai, pairs homoeopathic medicine with time to listen.
+            </p>
+          </header>
+
+          <ol className="flex flex-col gap-2 max-lg:order-3">
+            {ABOUT_STORY.map((s, i) => {
+              const on = i === active;
+              return (
+                /* the <li> is the scroll slot (taller on desktop); the card sits centred in it */
+                <li key={s.title} aria-current={on ? 'true' : undefined} className="as-card lg:flex lg:min-h-[34svh] lg:items-center">
+                  <div
+                    className={`relative w-full rounded-[22px] border bg-paper px-6 py-5 [transition:opacity_.5s_ease,box-shadow_.5s_ease,border-color_.5s_ease] motion-reduce:transition-none max-sm:px-5 max-sm:py-5 lg:rounded-[26px] lg:px-10 lg:py-9
+                                ${on ? 'border-line opacity-100 shadow-[0_20px_40px_-26px_rgba(33,37,41,.4)]' : 'border-transparent opacity-50'}`}
+                  >
+                    <span aria-hidden="true" className={`absolute bottom-5 left-0 top-5 w-[3px] rounded-full bg-accent [transition:transform_.5s_ease] lg:bottom-7 lg:top-7 ${on ? 'scale-y-100' : 'scale-y-0'}`} />
+                    <span className="mb-2 block font-display text-[clamp(34px,3.4vw,54px)] leading-none text-accent/80">{pad(i)}</span>
+                    <h3 className="mb-2 font-display text-[clamp(21px,2vw,30px)] font-normal leading-[1.2] text-p9">{s.title}</h3>
+                    <p className="text-[15px] leading-[1.7] text-p7 lg:text-[16.5px]">{s.text}</p>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      </div>
+    </section>
+  );
+}

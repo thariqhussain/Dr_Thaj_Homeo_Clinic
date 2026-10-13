@@ -1,0 +1,49 @@
+/* Decorative layer for the hero: a faint dot grid plus two botanical line-art sprigs.
+   The dots start as a static CSS gradient. On devices with a mouse (and no reduced-motion preference),
+   dotField.js swaps them for a canvas that reacts to the cursor — see that file for the cost controls.
+   The sprigs draw themselves once on load (CSS only) and then sit still; see .sprig-path in index.css. */
+
+import { useEffect, useRef } from 'react';
+import { createDotField } from '../lib/dotField';
+import { canHover, prefersReducedMotion } from '../lib/utils';
+
+const STEM = 'M46 432 C8 300 210 236 150 12';
+/* x, y, rotation (deg), scale — one entry per leaf along the stem */
+const LEAVES = [[42.8, 379.9, -132.6, 0.97], [50.4, 352.3, -17.1, 0.92], [64.9, 322.1, -112.8, 0.86], [83.5, 291.6, -5.1, 0.81], [104.0, 260.1, -109.4, 0.76], [124.1, 226.5, -9.1, 0.7], [141.8, 189.7, -119.9, 0.65], [154.9, 148.8, -25.1, 0.59], [161.0, 102.8, -139.7, 0.54], [150.0, 12.0, -105.0, 0.5]];
+const LEAF = 'M0 0C8 -9 26 -10 40 0C26 10 8 9 0 0Z M0 0L34 0';
+
+function Sprig({ className = '' }) {
+  return (
+    <svg viewBox="0 0 240 440" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d={STEM} pathLength="1" className="sprig-path" />
+      {LEAVES.map(([x, y, r, s], i) => (
+        <g key={i} transform={`translate(${x} ${y}) rotate(${r}) scale(${s})`}>
+          <path d={LEAF} pathLength="1" className="sprig-path" style={{ animationDelay: `${0.3 + i * 0.13}s` }} />
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+export default function HeroBackdrop() {
+  const root = useRef(null);
+  const layer = useRef(null);
+  const canvas = useRef(null);
+
+  useEffect(() => {
+    if (prefersReducedMotion() || !canHover()) return;       // touch / reduced motion keep the static CSS dots
+    const df = createDotField({ canvas: canvas.current, layer: layer.current, listenOn: root.current.parentElement });
+    return () => df.destroy();
+  }, []);
+
+  return (
+    <div ref={root} aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+      <div ref={layer} className="hero-dots absolute inset-0" />
+      <canvas ref={canvas} className="absolute inset-0 h-full w-full" />
+      {/* growing up from the bottom-left */}
+      <Sprig className="absolute -left-2 bottom-[7%] h-[58%] w-auto text-accent/40 max-lg:h-[38%] max-sm:h-[26%]" />
+      {/* hanging from the top-right */}
+      <Sprig className="absolute -right-2 top-[9%] h-[36%] w-auto rotate-180 text-accent/30 max-lg:h-[26%] max-sm:hidden" />
+    </div>
+  );
+}

@@ -1,0 +1,240 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ════════════════════════════════════════════════════════════
+   Everything below is the part of the old stylesheet that Tailwind
+   utilities can't express cleanly: pseudo-element effects, @property,
+   mask/gradient tricks, and the nav theme variables. Layout, spacing,
+   colour, typography and responsive rules now live in the JSX as
+   Tailwind classes.
+════════════════════════════════════════════════════════════ */
+
+@layer base {
+  html { scroll-behavior: smooth; }
+  /* :where() keeps specificity at 0 so utilities like scroll-mt-0 can override it */
+  :where(section[id]) { scroll-margin-top: 96px; }
+  body {
+    @apply bg-p1 font-body leading-relaxed text-p7;
+    overflow-x: hidden;
+  }
+}
+
+@layer components {
+  /* ── fine paper grain over the fixed page background (one small tiled SVG, static) ── */
+  .page-bg::after {
+    content: ''; position: absolute; inset: 0; opacity: .14;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27200%27 height=%27200%27%3E%3Cfilter id=%27n%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%27.85%27 numOctaves=%272%27 stitchTiles=%27stitch%27/%3E%3CfeColorMatrix values=%270 0 0 0 .1  0 0 0 0 .13  0 0 0 0 .1  .6 0 0 0 0%27/%3E%3C/filter%3E%3Crect width=%27100%25%27 height=%27100%25%27 filter=%27url%28%23n%29%27/%3E%3C/svg%3E");
+    background-size: 200px 200px;
+  }
+
+  /* ── HERO backdrop: faint dot grid, fading out toward the edges ── */
+  .hero-dots {
+    background-image: radial-gradient(rgba(90,138,106,.32) 1px, transparent 1.6px);
+    background-size: 22px 22px;
+    -webkit-mask-image: radial-gradient(ellipse 80% 75% at 58% 45%, #000 25%, transparent 82%);
+            mask-image: radial-gradient(ellipse 80% 75% at 58% 45%, #000 25%, transparent 82%);
+  }
+  /* once dotField.js has drawn the same dots on a canvas, the CSS copy steps aside */
+  .hero-dots.is-live { background-image: none; -webkit-mask-image: none; mask-image: none; }
+  /* botanical sprigs draw themselves once (paths carry pathLength="1"), then stay still */
+  .sprig-path { stroke-dasharray: 1; stroke-dashoffset: 0; animation: sprig-draw 1.6s cubic-bezier(.22,.61,.36,1) both; }
+  @media (prefers-reduced-motion: reduce) { .sprig-path { animation: none; } }
+
+  /* ── fixed page background ── */
+  .page-bg {
+    position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background:
+      radial-gradient(70% 55% at 12% 8%,  rgba(255,255,255,.95) 0%, rgba(255,255,255,0) 70%),
+      radial-gradient(60% 50% at 92% 88%, rgba(222,226,230,.55) 0%, rgba(222,226,230,0) 70%),
+      linear-gradient(160deg, #ffffff 0%, #f6f7f8 45%, #e9ecef 100%);
+  }
+
+  /* ── shared buttons / links / eyebrow ── */
+  .btn-solid-light {
+    @apply cursor-pointer rounded-md border-0 bg-p9 px-5 py-2 font-body text-sm text-p1 transition-colors duration-200 hover:bg-p8;
+  }
+  .btn-outline-light {
+    @apply cursor-pointer rounded-md border-[1.5px] border-p9 bg-transparent px-5 py-2 font-body text-sm text-p9
+           transition-[background,color,border-color] duration-200 hover:bg-p9 hover:text-p1;
+  }
+  .link-arrow-light {
+    @apply flex items-center gap-1.5 text-sm font-medium text-p7 no-underline transition-colors duration-200 hover:text-accent;
+  }
+  .eyebrow {
+    @apply mb-4 text-xs font-semibold uppercase tracking-[.12em] max-[375px]:text-[11px];
+  }
+  .eyebrow-light { @apply text-p6; }
+  .eyebrow-dark  { @apply text-p5; }
+
+  /* soft blurred circle used by every section's floating orbs */
+  .orb {
+    position: absolute; border-radius: 9999px; pointer-events: none;
+    -webkit-mask-image: radial-gradient(closest-side, #000 30%, transparent 100%);
+            mask-image: radial-gradient(closest-side, #000 30%, transparent 100%);
+  }
+  /* decorative infinite animations are paused by JS while off-screen */
+  .is-paused { animation-play-state: paused !important; }
+
+  /* ── NAV: theme variables (the toggle only swaps these) ── */
+  .site-nav {
+    --nav-glass-bg: color-mix(in srgb, #f8f9fa 78%, transparent);
+    --nav-glass-border: rgba(173,181,189,.4);
+    --nav-glass-shadow: rgba(33,37,41,.18);
+    --nav-glass-highlight: rgba(255,255,255,.9);
+    --nav-glass-caustic: rgba(255,255,255,.35);
+    --nav-reflection-start: rgba(255,255,255,.5);
+    --nav-glare-color: rgba(255,255,255,.6);
+    --nav-pill-bg: rgba(255,255,255,.65);
+    --nav-text: #495057;
+    --nav-text-strong: #212529;
+    --nav-accent: #5a8a6a;
+    --nav-btn-bg: #212529;
+    --nav-btn-fg: #f8f9fa;
+  }
+  .site-nav[data-theme='dark'] {
+    --nav-glass-bg: rgba(20,21,23,.78);
+    --nav-glass-border: rgba(255,255,255,.14);
+    --nav-glass-shadow: rgba(0,0,0,.5);
+    --nav-glass-highlight: rgba(255,255,255,.2);
+    --nav-glass-caustic: rgba(255,255,255,.05);
+    --nav-reflection-start: rgba(255,255,255,.12);
+    --nav-glare-color: rgba(255,255,255,.18);
+    --nav-pill-bg: rgba(255,255,255,.14);
+    --nav-text: rgba(255,255,255,.7);
+    --nav-text-strong: #f8f9fa;
+    --nav-accent: #dff0e6;
+    --nav-btn-bg: #f8f9fa;
+    --nav-btn-fg: #212529;
+  }
+  .nav-bar {
+    background: var(--nav-glass-bg);
+    border: 1px solid var(--nav-glass-border);
+    -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+    transform: translateZ(0);   /* own compositor layer: cheaper while scrolling */
+    will-change: transform;
+    box-shadow:
+      0 12px 32px -12px var(--nav-glass-shadow),
+      inset 0 1px 1px var(--nav-glass-highlight),
+      inset 0 -1px 2px var(--nav-glass-caustic);
+    transition: background .5s ease, border-color .5s ease, box-shadow .5s ease;
+  }
+  /* "wet glass" reflection across the top half */
+  .nav-bar::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 50%; pointer-events: none;
+    background: linear-gradient(180deg, var(--nav-reflection-start) 0%, transparent 100%);
+  }
+  .nav-glare {
+    background: radial-gradient(circle 120px at var(--x, 50%) var(--y, 50%), var(--nav-glare-color) 0%, transparent 100%);
+  }
+  .nav-bar:hover .nav-glare { opacity: 1; }
+  .nav-sun, .nav-moon { transition: transform .5s cubic-bezier(.34,1.2,.64,1), opacity .4s ease; }
+  .nav-sun  { opacity: 1; transform: rotate(0) scale(1); }
+  .nav-moon { opacity: 0; transform: rotate(-90deg) scale(0); }
+  .site-nav[data-theme='dark'] .nav-sun  { opacity: 0; transform: rotate(90deg) scale(0); }
+  .site-nav[data-theme='dark'] .nav-moon { opacity: 1; transform: rotate(0) scale(1); }
+
+  /* ── HERO stats card ── */
+  .hero-stats {
+    box-shadow:
+      0 40px 80px -30px rgba(20,20,20,.45), 0 16px 32px -12px rgba(20,20,20,.25),
+      inset 0 1px 0 rgba(255,255,255,.08), inset 0 -3px 8px rgba(0,0,0,.5);
+  }
+  .hero-stats::before {
+    content: ''; position: absolute; width: 500px; height: 500px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(90,138,106,.35), transparent 65%);
+    top: -250px; right: -100px; pointer-events: none;
+  }
+  .hero-stats::after {
+    content: ''; position: absolute; width: 350px; height: 350px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(223,240,230,.2), transparent 65%);
+    bottom: -200px; left: 20%; pointer-events: none;
+  }
+
+  /* ── TREATMENTS bento tile: legibility scrim + glass edge ── */
+  .bento-tile::before {
+    content: ''; position: absolute; inset: 0; z-index: -1;
+    background: linear-gradient(to top, rgba(20,21,23,.86) 0%, rgba(20,21,23,.38) 42%, rgba(20,21,23,0) 72%);
+  }
+  .bento-tile::after {
+    content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.18);
+  }
+  .glass-chip {
+    background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.35);
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  }
+
+  /* ── DOCTOR name plate: rotating conic border (needs @property) ── */
+  .dp-plate {
+    border: 1.5px solid transparent;
+    background:
+      linear-gradient(#fbfcfa, #fbfcfa) padding-box,
+      conic-gradient(from var(--dp-angle), #5a8a6a, rgba(90,138,106,.08) 35%, #5a8a6a 70%, rgba(90,138,106,.08)) border-box;
+    box-shadow: 0 24px 50px -22px rgba(33,37,41,.35);
+    animation: dp-angle 7s linear infinite;
+  }
+
+  /* ── CONNECT: cursor spotlight + rating card + link tiles ── */
+  .spotlight::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .3s;
+    background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 50%),
+                color-mix(in srgb, var(--acc, #5a8a6a) 20%, transparent), transparent 70%);
+  }
+  .spotlight:hover::after { opacity: 1; }
+  .rating-card::before {
+    content: ''; position: absolute; width: 300px; height: 300px; right: -90px; top: -120px; pointer-events: none;
+    background: radial-gradient(circle, rgba(90,138,106,.36), transparent 65%);
+  }
+  .social-item {
+    transition: transform .35s cubic-bezier(.34,1.15,.64,1), box-shadow .35s ease, border-color .3s ease, background .3s ease;
+  }
+  .social-item::before {
+    content: ''; position: absolute; left: 22px; right: 22px; bottom: 0; height: 3px;
+    border-radius: 3px 3px 0 0; background: var(--acc);
+    transform: scaleX(0); transform-origin: left; transition: transform .4s ease;
+  }
+  .social-item:hover { transform: translateY(-5px); border-color: var(--acc); background: rgba(255,255,255,.66);
+    box-shadow: 0 22px 40px -24px rgba(33,37,41,.45); }
+  .social-item:hover::before { transform: scaleX(1); }
+  .social-item:hover .social-item-icon  { transform: scale(1.12) rotate(-8deg); }
+  .social-item:hover .social-item-arrow { transform: rotate(0); background: var(--acc); border-color: var(--acc); color: #fff; }
+
+  /* ── BOOKING ── */
+  .bk-select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236c757d' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; cursor: pointer;
+  }
+
+  /* ── FOOTER ── */
+  .ft-marquee {
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+            mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+  }
+  .ft-cta-btn::before {
+    content: ''; position: absolute; inset: 0; z-index: -1; background: #5a8a6a;
+    transform: translateY(101%); transition: transform .5s cubic-bezier(.22,.61,.36,1);
+  }
+  .ft-cta-btn:hover::before { transform: none; }
+  .ft-cta-btn:hover { color: #fff; }
+  .ft-cta-btn:hover i { transform: rotate(-45deg); }
+  .ft-link { position: relative; display: inline-block; transition: color .25s, transform .3s; }
+  .ft-link::after {
+    content: ''; position: absolute; left: 0; bottom: -3px; width: 100%; height: 1px; background: #dff0e6;
+    transform: scaleX(0); transform-origin: right; transition: transform .4s cubic-bezier(.22,.61,.36,1);
+  }
+  .ft-link:hover { color: #fff; transform: translateX(4px); }
+  .ft-link:hover::after { transform: scaleX(1); transform-origin: left; }
+  .ft-letter {
+    display: inline-block; will-change: transform;
+    background: linear-gradient(180deg, rgba(223,240,230,.8) 0%, rgba(223,240,230,.6) 70%, rgba(223,240,230,.3) 95%, rgba(223,240,230,0) 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: transparent;
+  }
+}
+
+/* animated custom property for the doctor name-plate border */
+@property --dp-angle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+@keyframes dp-angle { to { --dp-angle: 360deg; } }
+@keyframes sprig-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }

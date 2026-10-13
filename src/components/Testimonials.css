@@ -1,0 +1,29 @@
+/* Patient feedback section — plain CSS (no Tailwind scanning needed) */
+.tm {
+  margin: 10px; padding: 72px 48px; text-align: center; border-radius: 18px;
+  border: 1px solid rgba(90,138,106,.2);
+  background: linear-gradient(160deg, #f7f9f5 0%, #e7efe5 100%);
+}
+.tm-head { max-width: 640px; margin: 0 auto 24px; }
+.tm-eyebrow { margin: 0 0 12px; font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: #6c757d; }
+.tm-title { margin: 0; font-family: 'DM Serif Display', Georgia, serif; font-weight: 400; font-size: clamp(30px, 4vw, 48px); line-height: 1.1; color: #121416; }
+.tm-title em { font-style: italic; color: #5a8a6a; }
+
+.tm-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-width: 760px; margin: 0 auto 32px; padding: 0; list-style: none; }
+.tm-tags li { padding: 7px 14px; border-radius: 999px; background: #dff0e6; color: #2f5a3f; font-size: 13px; }
+
+.tm-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; max-width: 1000px; margin: 0 auto 28px; }
+.tm-card {
+  margin: 0; padding: 28px; text-align: left; border-radius: 22px; background: #fbfcfa;
+  border: 1px solid #dde4da; box-shadow: 0 24px 50px -30px rgba(33,37,41,.35);
+}
+.tm-stars { margin-bottom: 12px; font-size: 18px; letter-spacing: 3px; color: #f4b942; }
+.tm-quote { margin: 0 0 18px; font-size: 15.5px; line-height: 1.75; color: #343a40; }
+.tm-by { display: flex; flex-direction: column; gap: 2px; font-size: 14px; color: #212529; }
+.tm-by span { font-size: 12.5px; color: #6c757d; }
+
+.tm-link { font-size: 14px; font-weight: 500; color: #495057; text-decoration: none; transition: color .2s; }
+.tm-link:hover { color: #5a8a6a; }
+
+@media (max-width: 900px) { .tm { padding: 56px 24px; } .tm-grid { grid-template-columns: 1fr; } }
+@media (max-width: 560px) { .tm { margin: 8px; padding: 44px 14px; } .tm-card { padding: 22px; } }
