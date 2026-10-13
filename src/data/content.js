@@ -17,12 +17,10 @@ export const STATS = [
 /* Clinic photos in /public/assets/hero-images — the About section uses the first four (one per card),
    the booking panel uses the second. Swap files or reorder here. */
 export const GALLERY = [
-  '/assets/hero-images/clinicImg1.webp',
-  '/assets/hero-images/clinicImg2.webp',
-  '/assets/hero-images/clinicImg3.webp',
   '/assets/hero-images/clinicImg4.webp',
-  '/assets/hero-images/clinicImg5.webp',
-  '/assets/hero-images/clinicImg6.webp',
+  '/assets/hero-images/clinicImg7.webp',
+  '/assets/hero-images/clinicImg8.webp',
+  '/assets/hero-images/clinicImg9.webp',
 ];
 
 /* `conditions` = the full list shown when a visitor hovers a department card (desktop) or taps "All conditions" (phones).
@@ -58,23 +56,23 @@ export const TREATMENT_CATEGORIES = [
 ];
 
 export const TREATMENTS = [
-  { cat: 'metabolic', img: 'treatment7.jpeg', chip: 'Thyroid', title: 'Thyroid Care', sub: 'Hypothyroidism, Hyperthyroidism, Goiter (Enlarged Thyroid)' },
-  { cat: 'metabolic', img: 'treatment1.jpg', chip: 'Weight', title: 'Weight Loss Counselling' },
-  { cat: 'metabolic', img: 'treatment18.png', chip: 'Nutrition', title: 'Nutrition Counselling' },
+  { cat: 'metabolic', img: 'treatment7.webp', chip: 'Thyroid', title: 'Thyroid Care', sub: 'Hypothyroidism, Hyperthyroidism, Goiter (Enlarged Thyroid)' },
+  { cat: 'metabolic', img: 'treatment1.webp', chip: 'Weight', title: 'Weight Loss Counselling' },
+  { cat: 'metabolic', img: 'treatment18.webp', chip: 'Nutrition', title: 'Nutrition Counselling' },
   { cat: 'metabolic', img: 'treatment2.webp', chip: 'Metabolic', title: 'Cholesterol & Uric Acid', sub: 'Hypercholesterolemia, Hypertriglyceridemia, Hyperuricemia' },
   { cat: 'family', img: 'treatment9.webp', chip: 'Women’s health', title: 'Women’s Care', sub: 'Irregular Menses, Fibroid Uterus, Fibroadenoma, Infertility' },
-  { cat: 'family', img: 'treatment10.jpg', chip: 'Children', title: 'Child Health', sub: 'Pediatric Care, Mumps, Child Counselling, De-Worming' },
+  { cat: 'family', img: 'treatment10.webp', chip: 'Children', title: 'Child Health', sub: 'Pediatric Care, Mumps, Child Counselling, De-Worming' },
   { cat: 'family', img: 'treatment6.webp', chip: 'Fertility', title: 'Fertility Counselling', sub: 'Fertility counselling services, Male Infertility' },
-  { cat: 'skin', img: 'treatment8.jpeg', chip: 'Skin', title: 'Skin Conditions', sub: 'Eczema, Psoriasis, Drug Allergy' },
-  { cat: 'skin', img: 'treatment17.jpg', chip: 'Hair', title: 'Hair Care', sub: 'Hair Loss' },
+  { cat: 'skin', img: 'treatment8.webp', chip: 'Skin', title: 'Skin Conditions', sub: 'Eczema, Psoriasis, Drug Allergy' },
+  { cat: 'skin', img: 'treatment17.webp', chip: 'Hair', title: 'Hair Care', sub: 'Hair Loss' },
   { cat: 'skin', img: 'treatment19.webp', chip: 'Wound care', title: 'Wound Care & Diabetic Foot', sub: 'Wound Dressing, First Aid, Diabetic Foot Ulcers, Periodic Foot Care' },
   { cat: 'pain', img: 'treatment3.webp', chip: 'Pain', title: 'Migraine & Headache Management' },
   { cat: 'pain', img: 'treatment14.webp', chip: 'Joints', title: 'Joint & Muscle Pain', sub: 'Joint Pain, Stiffness & Swelling, Gouty Arthritis, Knee Pain, Muscle Pain, Fibromyalgia' },
   { cat: 'pain', img: 'treatment15.webp', chip: 'Mind', title: 'Counselling & Mental Wellness', sub: 'Online Counselling, Couples Therapy, ADHD, Dementia' },
-  { cat: 'systems', img: 'treatment11.jpeg', chip: 'Respiratory', title: 'Asthma & Respiratory Care', sub: 'Asthma, Bronchitis, Cough, Tonsillitis, Nebulization Therapy' },
+  { cat: 'systems', img: 'treatment11.webp', chip: 'Respiratory', title: 'Asthma & Respiratory Care', sub: 'Asthma, Bronchitis, Cough, Tonsillitis, Nebulization Therapy' },
   { cat: 'systems', img: 'treatment12.webp', chip: 'Digestive', title: 'Digestive Health', sub: 'Heart Burn, Indigestion, Gastritis, Hyperacidity, IBS, Fatty Liver, Fissure in Ano' },
   { cat: 'systems', img: 'treatment16.webp', chip: 'Stones', title: 'Kidney & Gall Bladder Stones', sub: 'Kidney Stone, Gall Bladder Stone, Cystitis' },
-  { cat: 'systems', img: 'treatment13.jpg', chip: 'Tumors', title: 'Cancer & Tumor Care', sub: 'Gynaecological, Cervical, Gall Bladder & Genito-Urinary Cancer' },
+  { cat: 'systems', img: 'treatment13.webp', chip: 'Tumors', title: 'Cancer & Tumor Care', sub: 'Gynaecological, Cervical, Gall Bladder & Genito-Urinary Cancer' },
 ];
 
 /* How many tiles each category shows → which size recipe fills the 2-row grid */
@@ -109,11 +107,11 @@ export const CARE_AREAS = [
 ];
 
 export const JOURNEY = [
-  { title: 'Book', img: 'journey1.jpg' },
-  { title: 'Consult', img: 'journey2.jpeg' },
-  { title: 'Diagnose', img: 'journey3.avif' },
-  { title: 'Treat', img: 'journey4.jpg' },
-  { title: 'Recover', img: 'journey5.jpeg' },
+  { title: 'Book', img: 'journey1.webp' },
+  { title: 'Consult', img: 'journey2.webp' },
+  { title: 'Diagnose', img: 'journey3.webp' },
+  { title: 'Treat', img: 'journey4.webp' },
+  { title: 'Recover', img: 'journey5.webp' },
 ];
 
 /* Booking form */
@@ -183,21 +181,30 @@ export const PHARMACY = {
    id: unique key. days (optional number): shows "Improvement seen in N days"; leave it out to hide the badge.
    duration / note are optional too; empty ones are not shown. */
 export const RESULTS = [
-  { id: 'shingles',    condition: 'Herpes zoster',            img: '/assets/results/herpes_zoster.png' },
-  { id: 'vesicular',   condition: 'Vesicular eruption',       img: '/assets/results/vesicular_eruption.png' },
-  { id: 'eczema',      condition: 'Eczema',                   img: '/assets/results/eczema.png' },
-  { id: 'pityriasis',  condition: 'Pityriasis alba',          img: '/assets/results/pityriasis_alba.png' },
-  { id: 'vitiligo',    condition: 'Vitiligo',                 img: '/assets/results/vitiligo.png' },
-  { id: 'puffy-eyes',  condition: 'Puffy eyes',               img: '/assets/results/puffy_eyes.png' },
-  { id: 'jaundice',    condition: 'Jaundice',                 img: '/assets/results/jaundice.png' },
-  { id: 'rheumatoid',  condition: 'Rheumatoid arthritis',     img: '/assets/results/rheumatoid_arthritis.png' },
-  { id: 'ovarian-cyst',condition: 'Hemorrhagic ovarian cyst', img: '/assets/results/hemorrhagic_right_ovarian_cyst.png' },
-  { id: 'ureteric',    condition: 'Ureteric calculus',        img: '/assets/results/ureteric_calculus.png' },
+  { id: 'shingles',    condition: 'Herpes zoster',            img: '/assets/results/herpes_zoster.webp' },
+  { id: 'vesicular',   condition: 'Vesicular eruption',       img: '/assets/results/vesicular_eruption.webp' },
+  { id: 'eczema',      condition: 'Eczema',                   img: '/assets/results/eczema.webp' },
+  { id: 'pityriasis',  condition: 'Pityriasis alba',          img: '/assets/results/pityriasis_alba.webp' },
+  { id: 'vitiligo',    condition: 'Vitiligo',                 img: '/assets/results/vitiligo.webp' },
+  { id: 'puffy-eyes',  condition: 'Puffy eyes',               img: '/assets/results/puffy_eyes.webp' },
+  { id: 'jaundice',    condition: 'Jaundice',                 img: '/assets/results/jaundice.webp' },
+  { id: 'rheumatoid',  condition: 'Rheumatoid arthritis',     img: '/assets/results/rheumatoid_arthritis.webp' },
+  { id: 'ovarian-cyst',condition: 'Hemorrhagic ovarian cyst', img: '/assets/results/hemorrhagic_right_ovarian_cyst.webp' },
+  { id: 'ureteric',    condition: 'Ureteric calculus',        img: '/assets/results/ureteric_calculus.webp' },
 ];
 
 /* Highlights & updates strip — images in /public/assets/gallery, shown in this order. Empty = section hidden. */
 export const CLINIC_PHOTOS = [
-  // { src: '/assets/gallery/image1.webp', alt: 'Describe what the image says or shows' },
+  { src: '/assets/hero-images/clinicImg1.webp', alt: 'Describe image 5' },
+  { src: '/assets/gallery/gallery1.webp', alt: 'Describe image 1' },
+  { src: '/assets/hero-images/clinicImg2.webp', alt: 'Describe image 5' },
+  { src: '/assets/gallery/gallery2.webp', alt: 'Describe image 2' },
+  { src: '/assets/hero-images/clinicImg10.webp', alt: 'Describe image 5' },
+  { src: '/assets/gallery/gallery3.webp', alt: 'Describe image 3' },
+  { src: '/assets/hero-images/clinicImg11.webp', alt: 'Describe image 5' },
+  { src: '/assets/gallery/gallery4.webp', alt: 'Describe image 4' },
+  { src: '/assets/hero-images/clinicImg3.webp', alt: 'Describe image 5' },
+  { src: '/assets/gallery/gallery5.webp', alt: 'Describe image 5' },
 ];
 
 /* FAQ — answers are written for this clinic. Edit freely; the structured data for Google is built from this list. */

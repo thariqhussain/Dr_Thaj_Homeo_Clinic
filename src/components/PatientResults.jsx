@@ -179,7 +179,7 @@ export default function PatientResults() {
               >
                 <img
                   src={r.img} alt={`${r.condition}: before and after treatment`}
-                  loading={i < 2 ? 'eager' : 'lazy'} decoding="async" draggable="false"
+                  loading="lazy" decoding="async" draggable="false"
                   className="absolute inset-0 h-full w-full object-contain"
                 />
               </button>

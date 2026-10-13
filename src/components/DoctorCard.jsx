@@ -2,23 +2,25 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 import { gsap } from '../lib/gsap';
 import { useMagnetic } from '../hooks/useMagnetic';
 import { canHover, prefersReducedMotion } from '../lib/utils';
-import { createSpotlightLens } from '../lib/spotlightLens';
-import { createFocusPull } from '../lib/focusPull';
-import { createInkTrail } from '../lib/inkTrail';
-import { createWaterReveal } from '../lib/waterReveal';
 import './DoctorCard.css';
 
 /* Doctor card on the right of the hero: pop-out portrait, overlapping name plate, bio, CTA.
    Styled by DoctorCard.css (plain CSS, scales with the card's width).
    The `dc-*` classes double as GSAP selector hooks, scoped by gsap.context(). */
 
-const PHOTO = '/assets/doctors/drThaj.png';             // transparent cut-out (shown by default)
-const PHOTO_ALT = '/assets/doctors/drThajGreySuit.png';    // transparent cut-out revealed on hover
+const PHOTO = '/assets/doctors/drThaj.webp';             // transparent cut-out (shown by default)
+const PHOTO_ALT = '/assets/doctors/drThajGreySuit.webp';    // transparent cut-out revealed on hover
 
 /* which hover effect brings in the second photo:
    'water' = water ripple (WebGL)  |  'ink' = ink-trail reveal (canvas)  |  'focus' = soft focus pull (CSS)  |  'lens' = spotlight lens (WebGL) */
 const HOVER_EFFECT = 'water';
-const EFFECTS = { water: createWaterReveal, ink: createInkTrail, focus: createFocusPull, lens: createSpotlightLens };
+/* each effect is its own chunk and only the chosen one is ever downloaded (after the hero has painted) */
+const EFFECT_LOADERS = {
+  water: () => import('../lib/waterReveal').then((m) => m.createWaterReveal),
+  ink: () => import('../lib/inkTrail').then((m) => m.createInkTrail),
+  focus: () => import('../lib/focusPull').then((m) => m.createFocusPull),
+  lens: () => import('../lib/spotlightLens').then((m) => m.createSpotlightLens),
+};
 
 export default function DoctorCard() {
   const card = useRef(null);
@@ -61,14 +63,29 @@ export default function DoctorCard() {
     return () => ctx.revert();
   }, []);
 
-  /* hover swap to the second photo (skipped for reduced motion; falls back to the plain <img>) */
+  /* hover swap to the second photo (skipped for reduced motion; falls back to the plain <img>).
+     Starts only once the browser is idle, so the WebGL code and the second photo never compete with the first paint. */
   useEffect(() => {
     if (prefersReducedMotion()) return;
+    let fx = null;
+    let cancelled = false;
     const host = card.current.querySelector('.dc-cut-inner');
     const img = host.querySelector('.dc-photo');
-    const create = EFFECTS[HOVER_EFFECT] || createFocusPull;
-    const fx = create({ host, baseSrc: img.currentSrc || img.src, revealSrc: PHOTO_ALT });
-    return () => fx.destroy();
+
+    const start = async () => {
+      const create = await (EFFECT_LOADERS[HOVER_EFFECT] || EFFECT_LOADERS.focus)();
+      if (cancelled) return;
+      fx = create({ host, baseSrc: img.currentSrc || img.src, revealSrc: PHOTO_ALT });
+    };
+    const handle = 'requestIdleCallback' in window
+      ? window.requestIdleCallback(start, { timeout: 2500 })
+      : window.setTimeout(start, 400);
+
+    return () => {
+      cancelled = true;
+      if ('requestIdleCallback' in window) window.cancelIdleCallback(handle); else clearTimeout(handle);
+      fx?.destroy();
+    };
   }, []);
 
   return (

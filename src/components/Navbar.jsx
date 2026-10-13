@@ -108,7 +108,7 @@ export default function Navbar() {
 
         <a href="#" data-nav-item aria-label="Dr. Thaj Homoeo Clinic — home" className="relative z-[2] flex items-center font-logo text-[26px] text-p9 no-underline max-sm:px-2">
           <img
-            src="/assets/doctors/clinic_logo.png" alt="Dr. Thaj Homoeo Clinic logo" width="90" height="90"
+            src="/assets/doctors/clinic_logo.webp" alt="Dr. Thaj Homoeo Clinic logo" width="90" height="90"
             className="relative z-[2] block h-[46px] w-auto max-sm:h-[38px] max-[375px]:h-[34px] max-[320px]:h-[30px]"
           />
         </a>
