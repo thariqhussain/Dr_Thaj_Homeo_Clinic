@@ -1,4 +1,4 @@
-# Sri Durga Homeo Clinic — React + Tailwind
+# Dr Thaj Homoeo Clinic — React + Tailwind
 
 ## Run it
 ```bash
