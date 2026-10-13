@@ -191,20 +191,31 @@ export const RESULTS = [
   { id: 'rheumatoid',  condition: 'Rheumatoid arthritis',     img: '/assets/results/rheumatoid_arthritis.webp' },
   { id: 'ovarian-cyst',condition: 'Hemorrhagic ovarian cyst', img: '/assets/results/hemorrhagic_right_ovarian_cyst.webp' },
   { id: 'ureteric',    condition: 'Ureteric calculus',        img: '/assets/results/ureteric_calculus.webp' },
+  { id: 'kidney-stone', condition: 'Kidney Stone' , img: '/assets/results/kidney_stone.webp'},
+  { id: 'kidney-stone', condition: 'Kidney Stone' , img: '/assets/results/stones_3mm_5mm_scales.webp'},
+  { id: 'kidney-stone', condition: 'Kidney Stone' , img: '/assets/results/stone_4_5mm_scale.webp'},
+  { id: 'kidney-stone', condition: 'Kidney Stone' , img: '/assets/results/stone_7mm_scale.webp'},
+  { id: 'tonsils', condition: 'tonsils' , img: '/assets/results/tonsils.webp'},
+  { id: 'tonsils', condition: 'tonsils' , img: '/assets/results/diabetic_foot_ulcer.webp'}
 ];
 
 /* Highlights & updates strip — images in /public/assets/gallery, shown in this order. Empty = section hidden. */
 export const CLINIC_PHOTOS = [
   { src: '/assets/hero-images/clinicImg1.webp', alt: 'Describe image 5' },
-  { src: '/assets/gallery/gallery1.webp', alt: 'Describe image 1' },
   { src: '/assets/hero-images/clinicImg2.webp', alt: 'Describe image 5' },
-  { src: '/assets/gallery/gallery2.webp', alt: 'Describe image 2' },
   { src: '/assets/hero-images/clinicImg10.webp', alt: 'Describe image 5' },
-  { src: '/assets/gallery/gallery3.webp', alt: 'Describe image 3' },
   { src: '/assets/hero-images/clinicImg11.webp', alt: 'Describe image 5' },
-  { src: '/assets/gallery/gallery4.webp', alt: 'Describe image 4' },
   { src: '/assets/hero-images/clinicImg3.webp', alt: 'Describe image 5' },
+  { src: '/assets/hero-images/clinicImg12.webp', alt: 'Describe image 3' },
+  { src: '/assets/hero-images/clinicImg13.webp', alt: 'Describe image 5' },
+  { src: '/assets/hero-images/clinicImg14.webp', alt: 'Describe image 4' },
+  { src: '/assets/hero-images/clinicImg15.webp', alt: 'Describe image 5' },
+  { src: '/assets/hero-images/clinicImg16.webp', alt: 'Describe image 5' },
   { src: '/assets/gallery/gallery5.webp', alt: 'Describe image 5' },
+  { src: '/assets/gallery/gallery4.webp', alt: 'Describe image 4' },
+  { src: '/assets/gallery/gallery2.webp', alt: 'Describe image 2' },
+  { src: '/assets/gallery/gallery1.webp', alt: 'Describe image 1' },
+  { src: '/assets/gallery/gallery3.webp', alt: 'Describe image 3' },
 ];
 
 /* FAQ — answers are written for this clinic. Edit freely; the structured data for Google is built from this list. */

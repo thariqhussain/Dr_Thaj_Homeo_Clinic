@@ -149,7 +149,7 @@ export default function PatientResults() {
             Results our patients have seen
           </h2>
           <p className="text-[14.5px] leading-[1.6] text-p7">
-            Use the arrows to browse. Tap an image to see it in full.
+            These results are not typical , individual results will vary
           </p>
         </header>
 
