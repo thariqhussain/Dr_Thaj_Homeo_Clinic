@@ -1,26 +1,30 @@
 import { useLayoutEffect, useRef } from 'react';
 import { gsap } from '../lib/gsap';
+import { onIntro } from '../lib/intro';
 import { prefersReducedMotion } from '../lib/utils';
 
 /* Hero headline: a soft "rise from behind a mask" reveal, line by line.
    Each line sits in an overflow-hidden wrapper; its text slides up ~100% and
-   fades in with a gentle stagger. It starts after the navbar intro. */
+   fades in with a gentle stagger. It starts after the navbar intro and the doctor photo. */
 
 const LINES = ['Natural healing.', 'Personalized care.', 'Better living.'];
-const DELAY = 0.6;   // seconds — lets the navbar open first
+const DELAY = 0.15;  // seconds after the doctor photo is in
 
 export default function HeroHeading({ className = '' }) {
   const h1 = useRef(null);
 
   useLayoutEffect(() => {
     if (prefersReducedMotion()) return;
+    let off = () => {};
     const ctx = gsap.context(() => {
-      gsap.from('.hh-line > span', {
-        yPercent: 105, opacity: 0, duration: 1.1, stagger: 0.14, delay: DELAY, ease: 'power3.out',
-        clearProps: 'transform,opacity',
+      /* hidden right away, plays once the doctor photo is in (see lib/intro.js) */
+      const tw = gsap.from('.hh-line > span', {
+        yPercent: 105, opacity: 0, duration: 0.8, stagger: 0.1, delay: DELAY, ease: 'power3.out',
+        clearProps: 'transform,opacity', paused: true,
       });
+      off = onIntro('doctor', () => tw.play());
     }, h1);
-    return () => ctx.revert();
+    return () => { off(); ctx.revert(); };
   }, []);
 
   return (

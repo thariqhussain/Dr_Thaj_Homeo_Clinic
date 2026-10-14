@@ -2,7 +2,8 @@ import { PHARMACY, WA_NUMBER } from '../data/content';
 import OpenStatus from './OpenStatus';
 
 /* Pharmacy + free delivery + the two sets of opening hours.
-   All copy and timings live in content.js → PHARMACY. */
+   All copy and timings live in content.js → PHARMACY.
+   Photo: public/assets/hero-images/delivery_backdrop.webp (shown at its own proportions, rounded, above the text). */
 
 const POINTS = [
   { title: 'Homoeopathic medicines in stock', text: 'Your prescription can be filled at our own pharmacy.', icon: 'M12 3c3.5 4 6 7 6 10.5a6 6 0 0 1-12 0C6 10 8.5 7 12 3z' },
@@ -22,6 +23,12 @@ export default function Pharmacy() {
 
       <div className="relative z-[1] mx-auto grid max-w-[1080px] grid-cols-[1.1fr_.9fr] items-center gap-14 max-lg:grid-cols-1 max-lg:gap-10">
         <div>
+          {/* free-form photo: keeps its own proportions (no cropping, no fixed height), just rounded corners */}
+          <img
+            src="/assets/hero-images/delivery_backdrop.webp" alt="Homoeopathic pellets in glass bottles on a wooden tray"
+            width="1024" height="491" loading="lazy" decoding="async" draggable="false"
+            className="mb-8 block h-auto w-full max-w-[1024px] rounded-[22px] shadow-[0_30px_60px_-28px_rgba(33,37,41,.4),0_0_0_6px_rgba(255,255,255,.7)] max-sm:mb-6 max-sm:rounded-2xl"
+          />
           <h2 id="ph-title" className="mb-4 font-display text-[clamp(30px,3.6vw,46px)] font-normal leading-[1.1] text-p9">
             Medicines from our own pharmacy, will be delivered at your Door.
           </h2>

@@ -3,7 +3,8 @@
    dotField.js swaps them for a canvas that reacts to the cursor — see that file for the cost controls.
    The sprigs draw themselves once on load (CSS only) and then sit still; see .sprig-path in index.css. */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { onIntro } from '../lib/intro';
 import { createDotField } from '../lib/dotField';
 import { canHover, prefersReducedMotion } from '../lib/utils';
 
@@ -18,7 +19,7 @@ function Sprig({ className = '' }) {
       <path d={STEM} pathLength="1" className="sprig-path" />
       {LEAVES.map(([x, y, r, s], i) => (
         <g key={i} transform={`translate(${x} ${y}) rotate(${r}) scale(${s})`}>
-          <path d={LEAF} pathLength="1" className="sprig-path" style={{ animationDelay: `${0.3 + i * 0.13}s` }} />
+          <path d={LEAF} pathLength="1" className="sprig-path" style={{ animationDelay: `${0.05 + i * 0.07}s` }} />
         </g>
       ))}
     </svg>
@@ -29,6 +30,12 @@ export default function HeroBackdrop() {
   const root = useRef(null);
   const layer = useRef(null);
   const canvas = useRef(null);
+  /* sprigs wait (paused, undrawn) until the doctor photo is in; reduced motion shows them straight away */
+  const [wait, setWait] = useState(() => !prefersReducedMotion());
+  useEffect(() => {
+    if (prefersReducedMotion()) return;
+    return onIntro('doctor', () => setWait(false));
+  }, []);
 
   useEffect(() => {
     if (prefersReducedMotion() || !canHover()) return;       // touch / reduced motion keep the static CSS dots
@@ -37,9 +44,12 @@ export default function HeroBackdrop() {
   }, []);
 
   return (
-    <div ref={root} aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
-      <div ref={layer} className="hero-dots absolute inset-0" />
-      <canvas ref={canvas} className="absolute inset-0 h-full w-full" />
+    <div ref={root} aria-hidden="true" className={`pointer-events-none absolute inset-0 z-0 overflow-hidden ${wait ? 'sprigs-wait' : ''}`}>
+      {/* the dot grid is the very first thing on screen: this wrapper fades it in (CSS, .dots-intro) */}
+      <div className="dots-intro absolute inset-0">
+        <div ref={layer} className="hero-dots absolute inset-0" />
+        <canvas ref={canvas} className="absolute inset-0 h-full w-full" />
+      </div>
       {/* growing up from the bottom-left */}
       <Sprig className="absolute -left-2 bottom-[7%] h-[58%] w-auto text-accent/40 max-lg:h-[38%] max-sm:h-[26%]" />
       {/* hanging from the top-right */}

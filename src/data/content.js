@@ -9,8 +9,8 @@ export const NAV_LINKS = [
 
 /* Hero stat counters — only figures taken from the clinic's Justdial listing */
 export const STATS = [
-  { count: 44, suffix: '+', label: 'Conditions treated' },
-  { count: 35, suffix: '', label: 'Justdial ratings' },
+  { count: 1175, suffix: '+', label: 'Conditions treated' },
+  { count: 4.9, suffix: '', label: 'Average ratings' },
   { count: 6, suffix: '', label: 'Days a week' },
 ];
 
@@ -157,7 +157,7 @@ export const EMAIL = '';   // e.g. 'clinic@example.com' — hidden while empty
 
 /* Social links: only entries with a url are shown. icon: instagram | facebook | youtube | linkedin | x | whatsapp */
 export const SOCIALS = [
-  { name: 'Instagram', icon: 'instagram', url: '' },
+  { name: 'Instagram', icon: 'instagram', url: 'https://www.instagram.com/thajusmart/' },
   { name: 'Facebook',  icon: 'facebook',  url: '' },
   { name: 'WhatsApp',  icon: 'whatsapp',  url: `https://wa.me/${WA_NUMBER}` },
 ];
@@ -212,7 +212,6 @@ export const CLINIC_PHOTOS = [
   { src: '/assets/hero-images/clinicImg15.webp', alt: 'Describe image 5' },
   { src: '/assets/hero-images/clinicImg16.webp', alt: 'Describe image 5' },
   { src: '/assets/gallery/gallery5.webp', alt: 'Describe image 5' },
-  { src: '/assets/gallery/gallery4.webp', alt: 'Describe image 4' },
   { src: '/assets/gallery/gallery2.webp', alt: 'Describe image 2' },
   { src: '/assets/gallery/gallery1.webp', alt: 'Describe image 1' },
   { src: '/assets/gallery/gallery3.webp', alt: 'Describe image 3' },
@@ -254,6 +253,81 @@ export const REVIEWS = [
   {
     name: 'Dr Harini Ayyadurai',
     text: 'I recently visited for a follow-up appointment in the Pediatrics and OB/GYN departments, and I couldn’t be more impressed. Booking was seamless, and the customer service was outstanding.',
+    tags: ['Good facilities', 'Easy booking', 'Great customer service'],
+  },
+  {
+    name: 'Siva Priya',
+    text: 'most recommended.. used vitamin c soap huge result within one month.. never believe 🙏🏽',
+    tags: ['Good facilities', 'Easy booking', 'Great customer service'],
+  },
+  {
+    name: 'Swathi Palani',
+    text: 'I wana share my personal experience,for the past 4 years I have been suffering from severe PCOD.After my delivery I was diagnosed with endometrial thickening of 18mm along with heavy bleeding.I consulted Dr.Thaj regarding my problem and by his advice I followed homeopathy medication and proper diet chart and now my pcod is getting reversed and I could literally feel changes in me.Thank you so much Doctor for your medications and advice.',
+    tags: ['Good facilities', 'Easy booking', 'Great customer service'],
+  },
+  {
+    name: 'Dinesh Krishna',
+    text: 'Im DINESH , I have ear block and pain for 1week . I have never try homoeo medicines, but try this time 100% cured thanks forDR THAJ sir',
+    tags: ['Good facilities', 'Easy booking', 'Great customer service'],
+  },
+  {
+    name: 'Nandhini',
+    text: "Hi, I’m Nandhini.I had been suffering from nasal blockage for more than 5 months. I tried many medications, but there was no improvement, and my condition reached a stage where surgery was suggested. After that, I consulted Dr. Thajudeen. He advised me to take the prescribed medicines properly and assured me that I would see good results within a week, without the need for surgery.As advised, I took the medicines regularly and seriously. It honestly felt like magic. Till now, I have not faced any problems — my nasal blockage and headaches are completely gone. Thank you so much, Doctor.",
+    tags: ['Good facilities', 'Easy booking', 'Great customer service'],
+  },
+  {
+    name: 'Preeti Suresh',
+    text: "The overall treatment at this homeopathy clinic is very good.The treatment was effective.The doctor is kind, patient, and listens carefully. I'm satisfied with my treatment",
+    tags: ['Good facilities', 'Easy booking', 'Great customer service'],
+  },
+  {
+    name: 'Mehavarshini',
+    text: "After months of suffering from severe throat pain and an uncontrollable cough that never responded to syrups or injections, Dr. Thaj’s treatment worked like a miracle. Within just a few days, my long-standing problem was finally under control, and I am truly grateful for his expertise and care.",
+    tags: ['Good facilities', 'Easy booking', 'Great customer service'],
+  },
+  {
+    name: 'Sumaiya',
+    text: "Hi i am sumaiya , i had ear and nose block for one month - I tried several medicines , nothing has worked , then i asked DR . Thajudeen for medicines- to be frank i have never tried homeo till now , as he assured i took it for one week , within a week ,the block has vanished completely with no side effects. Honestly it has worked for me . I suggest , try it - for sure it will work .All credits to DR. THAJUDEEN 🥳",
+    tags: ['Good facilities', 'Easy booking', 'Great customer service'],
+  },
+  {
+    name: 'Mohammad Halith',
+    text: "I have a problem in Hemorrhagic cyst .I underwent treatment for six months. He guided me what I should eat and what I shouldn't eat. Alhamdulillah cyst is now cure 😊 He is friendly approachable doctor to solve the problem",
+    tags: ['Good facilities', 'Easy booking', 'Great customer service'],
+  },
+  {
+    name: 'Nirmala',
+    text: "My grandmother was suffering from a painful herpes infection with significant facial swelling and skin lesions. We consulted Dr. Thaj Homoeo clinic, and under Dr. Thaj’s care, we noticed significant improvement within 7 days. The swelling, lesions and discomfort reduced considerably, but still in treatment and we are very satisfied with his treatment and thankful for the care and guidance provided.",
+    tags: ['Good facilities', 'Easy booking', 'Great customer service'],
+  },
+  {
+    name: 'Zackariah',
+    text: "My father developed a small spot under his eye, so we consulted Dr. Thajudeen. After examining him, the doctor prescribed some medication and advised us to follow the treatment for one month. Within just a few weeks, we could already see a significant improvement, and the spot has reduced considerably compared to the previous condition.I have attached both the previous photo and the recent photo to show the improvement. We are very happy with the results of the treatment.Thank you so much, Dr. Thajudeen, for your care, guidance, and effective treatment. We truly appreciate your support. ☺️❤️",
+    tags: ['Good facilities', 'Easy booking', 'Great customer service'],
+  },
+  {
+    name: 'S.Surya',
+    text: "I was suffering from back pain, so I visited Dr. Thaj Homoeo Clinic for treatment. The doctor provided excellent care and prescribed homeopathic tablets. After taking the medication, my back pain completely disappeared, and I feel much better now. The treatment was effective, and the doctor was very kind and professional. I am truly satisfied with the service and would highly recommend Dr. Thaj Homoeo Clinic to anyone looking for quality homeopathic treatment. Thank you, Doctor!",
+    tags: ['Good facilities', 'Easy booking', 'Great customer service'],
+  },
+  {
+    name: 'Hajira Wahith',
+    text: "I Highly recommend this doctor💯 ,my hubby had a kidney stone issue and after taking prescribed homeopathic medicine ,the stone was successfully passed through urine ...the treatment was very effective and natural I am very grateful to the Dr.thaj.",
+    tags: ['Good facilities', 'Easy booking', 'Great customer service'],
+  },
+  {
+    name: 'Hajira Wahith',
+    text: "I Highly recommend this doctor💯 ,my hubby had a kidney stone issue and after taking prescribed homeopathic medicine ,the stone was successfully passed through urine ...the treatment was very effective and natural I am very grateful to the Dr.thaj.",
+    tags: ['Good facilities', 'Easy booking', 'Great customer service'],
+  },
+  {
+    name: 'Bhakya',
+    text: "The homeopathic medicine is working very well for me, and I’m receiving really good treatment. They told me that I don’t necessarily have to continue taking the medicine continuously. The more we take care of our body and follow the right diet, the faster the body can recover.If we continue the medicine they prescribed, it will help us get better faster.He take really good care for patient.",
+    tags: ['Good facilities', 'Easy booking', 'Great customer service'],
+  },
+  {
+    name: "Dr Navin Sakthi's Homeo",
+    text: "I highly recommend Dr. Thaj Homoeo Clinic in Minjur. Dr. Mohammed Thajudeen is an exceptional and highly experienced homeopathic doctor who listens to patients with great patience and understanding.The clinic provides highly effective, safe, and affordable treatments without any side effects. I noticed an excellent recovery from chronic health issues within a few weeks of starting the treatment. The clinic premises are clean, well-maintained, and follow excellent hygienic standards. If you are looking for permanent, non-surgical solutions for long-standing illnesses, this is definitely the best clinic in Minjur!",
     tags: ['Good facilities', 'Easy booking', 'Great customer service'],
   },
 ];

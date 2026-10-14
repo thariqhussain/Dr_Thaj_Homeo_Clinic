@@ -1,7 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { gsap } from '../lib/gsap';
+import { introDone } from '../lib/intro';
 import { NAV_LINKS } from '../data/content';
 import { prefersReducedMotion, scrollToId } from '../lib/utils';
+
+/* seconds to wait before the navbar intro starts, so the hero dot grid is already fading in */
+const INTRO_DELAY = 0.45;
 
 const SunIcon = () => (
   <svg className="nav-sun absolute left-0 top-0" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -25,26 +29,35 @@ export default function Navbar() {
   const hoveredIdx = useRef(-1);
   const barRef = useRef(null);
   const glareRef = useRef(null);
+  const shimmerRef = useRef(null);
 
-  /* Load / reload intro: the bar pops in as a small circle, then spreads out
-     to its full width; the logo, links and buttons fade in once it has opened. */
+  /* Load / reload intro (glass shimmer sweep): the bar comes into focus (blur → sharp) while fading in,
+     one diagonal glare sweeps across it, then the logo, buttons and link labels rise in one after another.
+     The whole thing takes ~1.3s and tells the doctor photo to start at ~0.7s (see lib/intro.js). */
   useLayoutEffect(() => {
-    const bar = barRef.current;
-    if (!bar || prefersReducedMotion()) return;
+    const bar = barRef.current, shimmer = shimmerRef.current;
+    if (!bar || !shimmer || prefersReducedMotion()) return;
     const ctx = gsap.context(() => {
-      const w = bar.offsetWidth, h = bar.offsetHeight;
-      const side = (w - h) / 2, r = h / 2;
-      const circle = `inset(0px ${side}px 0px ${side}px round ${r}px)`;   // a circle h px wide, centred
-      const full = `inset(0px 0px 0px 0px round ${r}px)`;
       const items = bar.querySelectorAll('[data-nav-item]');
+      const labels = bar.querySelectorAll('.nav-link-label');
 
-      gsap.set(bar, { clipPath: circle, scale: 0.3, opacity: 0 });
+      gsap.set(bar, { opacity: 0, scale: 0.94, filter: 'blur(12px)' });
       gsap.set(items, { opacity: 0, y: -8 });
-      gsap.timeline()
-        .to(bar, { scale: 1, opacity: 1, duration: 0.55, ease: 'back.out(1.8)' })
-        .to(bar, { clipPath: full, duration: 0.95, ease: 'power3.inOut' }, '+=0.05')
-        .to(items, { opacity: 1, y: 0, duration: 0.6, stagger: 0.1, ease: 'power3.out' }, '-=0.45')
-        .set(bar, { clearProps: 'clipPath,transform,opacity' });   // restore shadow + normal styling
+      gsap.set(labels, { yPercent: 115 });
+      gsap.set(shimmer, { xPercent: -130, skewX: -20, opacity: 0 });
+
+      gsap.timeline({ delay: INTRO_DELAY })
+        /* 1 — focus pull: soft + small → sharp + full size */
+        .to(bar, { opacity: 1, scale: 1, filter: 'blur(0px)', duration: 0.7, ease: 'power2.out' }, 0)
+        /* 2 — one glare sweeps diagonally across the glass (the band is ~38% of the bar wide, so 340% clears it) */
+        .to(shimmer, { opacity: 1, duration: 0.15, ease: 'none' }, 0.3)
+        .to(shimmer, { xPercent: 340, duration: 0.85, ease: 'power2.inOut' }, 0.3)
+        .to(shimmer, { opacity: 0, duration: 0.2, ease: 'none' }, 0.95)
+        .add(() => introDone('nav'), 0.7)                                 // bar is in → the doctor photo may start
+        /* 3 — content: logo + buttons fade down into place, link labels rise out of a mask one by one */
+        .to(items, { opacity: 1, y: 0, duration: 0.55, stagger: 0.08, ease: 'power3.out' }, 0.45)
+        .to(labels, { yPercent: 0, duration: 0.6, stagger: 0.07, ease: 'power3.out' }, 0.55)
+        .set(bar, { clearProps: 'filter,transform,opacity' });            // restore shadow + normal styling
     }, bar);
     return () => ctx.revert();
   }, []);
@@ -99,14 +112,23 @@ export default function Navbar() {
     >
       <div
         ref={barRef}
-        className="nav-bar pointer-events-auto relative flex h-[60px] w-3/4 max-w-[1400px] items-center justify-between gap-3 overflow-hidden rounded-full pl-[18px] pr-2
+        className="nav-bar pointer-events-auto relative flex h-[60px] w-3/4 max-w-[1400px] items-center justify-between gap-3 overflow-hidden rounded-full pl-[7px] pr-2
                    max-lg:w-[calc(100%-48px)] max-[760px]:backdrop-blur-[12px]
                    max-sm:h-[52px] max-sm:w-[calc(100%-24px)] max-sm:pl-1 max-sm:pr-1.5
                    max-[375px]:h-12 max-[375px]:w-[calc(100%-20px)] max-[320px]:w-[calc(100%-16px)]"
       >
         <span ref={glareRef} className="nav-glare pointer-events-none absolute inset-0 block opacity-0 transition-opacity duration-300" />
+        {/* intro-only: the diagonal glass glare that sweeps across the bar once on load */}
+        <span
+          ref={shimmerRef} aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 left-0 z-[3] block w-[38%] opacity-0"
+          style={{ background: 'linear-gradient(100deg, transparent 0%, rgba(255,255,255,.75) 50%, transparent 100%)' }}
+        />
 
-        <a href="#" data-nav-item aria-label="Dr. Thaj Homoeo Clinic — home" className="relative z-[2] flex items-center font-logo text-[26px] text-p9 no-underline max-sm:px-2">
+        <a href="#" data-nav-item aria-label="Dr. Thaj Homoeo Clinic — home" className="relative z-[2] flex items-center rounded-full px-[11px] py-[3px] font-logo text-[26px] text-p9 no-underline
+                   bg-[linear-gradient(to_top_right,#241b17_0%,#2f2623_50%,#6f696d_100%)]
+                   shadow-[inset_0_1px_1px_rgba(255,255,255,.22),0_8px_16px_-8px_rgba(20,12,10,.6)]
+                   max-sm:px-2 max-sm:py-0.5">
           <img
             src="/assets/doctors/clinic_logo.webp" alt="Dr. Thaj Homoeo Clinic logo" width="90" height="90"
             className="relative z-[2] block h-[46px] w-auto max-sm:h-[38px] max-[375px]:h-[34px] max-[320px]:h-[30px]"
@@ -133,7 +155,7 @@ export default function Navbar() {
               onMouseEnter={() => movePillTo(i)}
               className="relative z-[1] flex h-[46px] items-center rounded-full px-5 text-sm font-medium text-[var(--nav-text)] no-underline transition-colors duration-200 hover:text-[var(--nav-accent)]"
             >
-              {l.label}
+              <span className="block overflow-hidden py-0.5"><span className="nav-link-label block">{l.label}</span></span>
             </a>
           ))}
         </div>

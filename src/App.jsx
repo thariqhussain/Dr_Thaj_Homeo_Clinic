@@ -1,7 +1,15 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useState } from 'react';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import { ScrollTrigger } from './lib/gsap';
+import { skipIntro } from './lib/intro';
+import { readSavedScroll, startScrollMemory } from './lib/scrollRestore';
+
+/* where the visitor was before a reload / hard reload (null on a normal visit). Read once, at startup.
+   SAVED.slots = the remembered real size of each section, used so unloaded sections reserve exactly the right space. */
+const SAVED = readSavedScroll();
+const SLOTS = SAVED?.slots || null;
+if (SAVED) skipIntro();   // the hero is off-screen after a reload mid-page: no point playing its load sequence
 
 /* Only the navbar + hero are in the first download. Every section below is its own chunk,
    fetched and mounted AFTER the hero has painted (see <Deferred /> below). */
@@ -12,24 +20,26 @@ const Connect = lazy(() => import('./components/Connect'));
 const PatientResults = lazy(() => import('./components/PatientResults'));
 const Testimonials = lazy(() => import('./components/Testimonials'));
 const Gallery = lazy(() => import('./components/Gallery'));
+const Ceremony = lazy(() => import('./components/Ceremony'));
 const Pharmacy = lazy(() => import('./components/Pharmacy'));
 const FAQ = lazy(() => import('./components/FAQ'));
 const Booking = lazy(() => import('./components/Booking'));
 const Footer = lazy(() => import('./components/Footer'));
 const FloatingContact = lazy(() => import('./components/FloatingContact'));
 
-/* page order, top to bottom: [component, placeholder height while it is not loaded yet] */
+/* page order, top to bottom: [component, placeholder height while it is not loaded yet, the section's element id] */
 const MAIN_SECTIONS = [
-  [AboutStory, '80svh'],
-  [Treatments, '100svh'],
-  [DoctorProfile, '75svh'],
-  [Connect, '80svh'],
-  [PatientResults, '70svh'],
-  [Testimonials, '60svh'],
-  [Gallery, '70svh'],
-  [Pharmacy, '60svh'],
-  [FAQ, '60svh'],
-  [Booking, '80svh'],
+  [AboutStory, '80svh', 'about'],
+  [Treatments, '100svh', 'treatments'],
+  [DoctorProfile, '75svh', 'doctors'],
+  [Connect, '80svh', 'testimonials'],
+  [PatientResults, '70svh', 'results'],
+  [Testimonials, '60svh', 'patient-voices'],
+  [Gallery, '70svh', 'gallery'],
+  [Ceremony, '70svh', 'ceremony'],
+  [Pharmacy, '60svh', 'pharmacy'],
+  [FAQ, '60svh', 'faq'],
+  [Booking, '80svh', 'booking'],
 ];
 const FOOTER_INDEX = MAIN_SECTIONS.length;
 const FLOAT_INDEX = FOOTER_INDEX + 1;
@@ -62,7 +72,7 @@ function useStagger(total) {
 
 /* Renders an empty, fixed-height placeholder until it is this section's turn OR the visitor is within
    ~800px of it, then loads the section's chunk. Images inside stay `loading="lazy"`. */
-function Deferred({ index, ready, minHeight, children }) {
+function Deferred({ index, ready, minHeight, slot, children }) {
   const [near, setNear] = useState(false);
   const [node, setNode] = useState(null);
   const show = near || ready > index;
@@ -78,8 +88,11 @@ function Deferred({ index, ready, minHeight, children }) {
     return () => io.disconnect();
   }, [show, node]);
 
-  if (!show) return <div ref={setNode} aria-hidden="true" style={{ minHeight }} />;
-  return <Suspense fallback={<div aria-hidden="true" style={{ minHeight }} />}>{children}</Suspense>;
+  /* after a reload the placeholder copies the section's remembered real height + margins, so the page is the right
+     length (and the saved scroll position lands in the right place) before any section has loaded */
+  const box = slot ? { minHeight: slot.h, marginTop: slot.mt, marginBottom: slot.mb } : { minHeight };
+  if (!show) return <div ref={setNode} aria-hidden="true" style={box} />;
+  return <Suspense fallback={<div aria-hidden="true" style={box} />}>{children}</Suspense>;
 }
 
 /* Pause decorative infinite animations while they're off-screen
@@ -106,6 +119,7 @@ function usePauseOffscreen() {
 
 export default function App() {
   usePauseOffscreen();
+  useLayoutEffect(() => startScrollMemory(SAVED), []);   // remember the scroll position; jump back to it after a reload (before first paint)
   const ready = useStagger(TOTAL);
 
   /* sections mounted late change the page height, so tell ScrollTrigger to re-measure once they're all in */
@@ -121,13 +135,13 @@ export default function App() {
       <Navbar />
       <main>
         <Hero />
-        {MAIN_SECTIONS.map(([Section, minHeight], i) => (
-          <Deferred key={i} index={i} ready={ready} minHeight={minHeight}>
+        {MAIN_SECTIONS.map(([Section, minHeight, id], i) => (
+          <Deferred key={i} index={i} ready={ready} minHeight={minHeight} slot={SLOTS?.[id]}>
             <Section />
           </Deferred>
         ))}
       </main>
-      <Deferred index={FOOTER_INDEX} ready={ready} minHeight="300px"><Footer /></Deferred>
+      <Deferred index={FOOTER_INDEX} ready={ready} minHeight="300px" slot={SLOTS?.siteFooter}><Footer /></Deferred>
       <Deferred index={FLOAT_INDEX} ready={ready} minHeight="0px"><FloatingContact /></Deferred>
     </>
   );

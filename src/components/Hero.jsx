@@ -1,3 +1,5 @@
+import { useRef } from 'react';
+import { useIntroReveal } from '../hooks/useIntroReveal';
 import HeroBackdrop from './HeroBackdrop';
 import HeroHeading from './HeroHeading';
 import HeroStats from './HeroStats';
@@ -11,6 +13,8 @@ const heroBtn =
   'max-[375px]:px-3.5 max-[375px]:py-[9px] max-[375px]:text-xs max-[320px]:px-3 max-[320px]:py-2 max-[320px]:text-[11px]';
 
 export default function Hero() {
+  const btns = useRef(null);
+  useIntroReveal(btns, { y: 18, delay: 0.3, duration: 0.6 });   // buttons come in after the headline starts
   return (
     <section
       id="home"
@@ -32,7 +36,7 @@ export default function Hero() {
                      max-[320px]:mb-2.5 max-[320px]:text-[26px]"
         />
 
-        <div className="flex flex-wrap justify-start gap-4 max-lg:justify-center max-lg:gap-2.5 max-sm:flex-row max-sm:gap-2 max-[375px]:gap-1.5">
+        <div ref={btns} className="flex flex-wrap justify-start gap-4 max-lg:justify-center max-lg:gap-2.5 max-sm:flex-row max-sm:gap-2 max-[375px]:gap-1.5">
           <button type="button" onClick={() => scrollToId('booking')} className={`btn-solid-light ${heroBtn} max-sm:hidden`}>
             Book appointment
           </button>

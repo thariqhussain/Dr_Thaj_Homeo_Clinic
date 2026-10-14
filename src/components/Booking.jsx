@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { gsap } from '../lib/gsap';
-import { ADDRESS, EMAIL, GALLERY, MAPS_URL, PHONES, SERVICES, TIME_SLOTS, WA_NUMBER } from '../data/content';
+import { ADDRESS, EMAIL, GALLERY, MAPS_URL, PHARMACY, PHONES, SERVICES, TIME_SLOTS, WA_NUMBER } from '../data/content';
 import MapCard from './MapCard';
 import OpenStatus from './OpenStatus';
 import { prefersReducedMotion, todayISO } from '../lib/utils';
@@ -8,6 +8,9 @@ import { prefersReducedMotion, todayISO } from '../lib/utils';
 /* Left panel photo (blurred, behind the clinic details). Swap for the real clinic photo —
    an exterior or entrance shot works best for highlighting the location. */
 const BOOKING_PHOTO = GALLERY[1];
+
+/* consultation days + both sessions, read from content.js → PHARMACY.hours so there is one place to edit */
+const CONSULT = PHARMACY.hours.find((h) => h.key === 'consultation');
 
 const LEAD_TIME_MIN = 30;   // can't book a slot starting sooner than this
 const DAYS_AHEAD = 21;      // length of the date strip
@@ -257,7 +260,10 @@ export default function Booking() {
               <br />
               <a href={MAPS_URL} target="_blank" rel="noopener" className="mt-1.5 inline-block text-[13.5px] text-accent-light underline-offset-4 hover:underline">Get directions →</a>
             </InfoItem>
-            <InfoItem icon="clock" title="Consultation hours">Monday – Saturday<br />6:00 PM – 10:00 PM</InfoItem>
+            <InfoItem icon="clock" title="Consultation hours">
+              {CONSULT?.days}
+              {CONSULT?.time.split(', ').map((t) => <span key={t}><br />{t}</span>)}
+            </InfoItem>
             <InfoItem icon="phone" title="Phone">
               {PHONES.map((p, i) => (
                 <span key={p.tel}>

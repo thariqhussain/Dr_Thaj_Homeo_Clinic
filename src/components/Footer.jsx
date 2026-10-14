@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef } from 'react';
 import { gsap } from '../lib/gsap';
-import { EMAIL, MAPS_URL, PHONES } from '../data/content';
+import { EMAIL, MAPS_URL, PHARMACY, PHONES } from '../data/content';
 import { useMagnetic } from '../hooks/useMagnetic';
 import OpenStatus from './OpenStatus';
 import SocialLinks from './SocialLinks';
@@ -8,6 +8,8 @@ import { prefersReducedMotion } from '../lib/utils';
 
 const MARQUEE = ['Thyroid', 'Asthma', 'Migraine', 'Joint Pain', 'Eczema', 'Digestive Care', "Women's Health", 'Child Health'];
 const WORD = 'Dr. Thaj';
+/* consultation days + both sessions, read from content.js → PHARMACY.hours */
+const CONSULT = PHARMACY.hours.find((h) => h.key === 'consultation');
 
 const colHead = 'mb-3.5 text-xs font-semibold uppercase tracking-[.14em] text-mint';
 
@@ -23,10 +25,14 @@ export default function Footer() {
         .from('.ft-marquee', { opacity: 0, duration: 0.8 });
       gsap.timeline({ defaults: { ease: 'power3.out' }, scrollTrigger: { trigger: '.ft-grid', start: 'top 85%', once: true } })
         .from('.ft-grid > *', { y: 30, opacity: 0, duration: 0.7, stagger: 0.1 });
-      gsap.from('.ft-letter', {
-        yPercent: 100, opacity: 0, duration: 1.1, ease: 'power4.out', stagger: 0.06,
-        scrollTrigger: { trigger: '.ft-word', start: 'top 95%', once: true },
-      });
+      /* wordmark: plays every time the footer is reached from above, and resets when it is scrolled back out of view.
+         toggleActions = onEnter | onLeave | onEnterBack | onLeaveBack */
+      gsap.fromTo('.ft-letter',
+        { yPercent: 100, opacity: 0 },
+        {
+          yPercent: 0, opacity: 1, duration: 1.1, ease: 'power4.out', stagger: 0.06,
+          scrollTrigger: { trigger: '.ft-word', start: 'top 95%', toggleActions: 'restart none restart reset' },
+        });
     }, ft);
     return () => ctx.revert();
   }, []);
@@ -83,7 +89,12 @@ export default function Footer() {
             <li><a href="#booking" className="ft-link">Book appointment</a></li>
             <li><a href="#contact" className="ft-link">Clinic details</a></li>
             <li><a href={MAPS_URL} target="_blank" rel="noopener" className="ft-link">Get directions</a></li>
-            <li className="text-[13.5px] text-p5">Consultation Mon – Sat · 6 – 10 PM</li>
+            {CONSULT && (
+              <li className="text-[13.5px] leading-[1.6] text-p5">
+                Consultation {CONSULT.days}
+                {CONSULT.time.split(', ').map((t) => <span key={t} className="block">{t}</span>)}
+              </li>
+            )}
             <li><OpenStatus which="consultation" /></li>
           </ul>
         </div>

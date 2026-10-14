@@ -2,9 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { JOURNEY } from '../data/content';
 import { useInView } from '../hooks/useInView';
 
-/* Auto-rotating 3D ring of cards. One `active` index drives the ring, the
-   "STEP 01 / 05" counter and the progress rail — which replaces the
-   MutationObserver the vanilla version needed to keep them in sync. */
+/* Auto-rotating 3D ring of cards, driven by one `active` index.
+   (The "STEP 01 / 05" counter and the progress rail under the ring were removed.) */
 
 const COUNT = JOURNEY.length;
 const STEP = 360 / COUNT;
@@ -41,7 +40,7 @@ export default function JourneyPanel({ panelRef }) {
   return (
     <div
       id="journey" ref={setRefs}
-      className="cn-right relative flex flex-col overflow-hidden rounded-3xl bg-[radial-gradient(120%_90%_at_50%_0%,#254033_0%,#14211a_70%)] px-6 pb-4 pt-5 text-center
+      className="cn-right relative flex flex-col overflow-hidden rounded-3xl bg-[radial-gradient(120%_90%_at_50%_0%,#254033_0%,#14211a_70%)] px-6 pb-6 pt-5 text-center
                  shadow-[0_34px_60px_-32px_rgba(10,20,14,.75)] max-[560px]:px-3.5 max-[560px]:py-[22px]"
     >
       <div className="relative z-[2] flex items-end justify-between text-left">
@@ -49,12 +48,10 @@ export default function JourneyPanel({ panelRef }) {
           <p className="eyebrow eyebrow-dark !mb-0.5">Journey</p>
           <h3 className="mt-1 font-display text-[22px] font-normal leading-[1.1] text-white max-[560px]:text-[22px]">Your care journey</h3>
         </div>
-        <span className="whitespace-nowrap text-[13px] tracking-[.1em] text-white/55" aria-hidden="true">
-          STEP <b className="font-display text-[22px] font-normal tracking-normal text-accent-light">{String(active + 1).padStart(2, '0')}</b> / {String(COUNT).padStart(2, '0')}
-        </span>
       </div>
 
       {/* 3D ring — from sm up it is drawn at 55% size; the outer box reserves only the scaled height */}
+      <div className="flex flex-1 flex-col justify-center">
       <div className="mt-[22px] sm:mt-3 sm:h-[212px]">
        <div className="sm:origin-top sm:scale-[.55]">
       <div className="journey-carousel relative mx-auto h-[380px] w-full max-w-[500px] flex-none [perspective:1400px] max-sm:h-80 max-sm:[perspective:1000px] max-[375px]:h-[280px] max-[320px]:h-60 max-[320px]:[perspective:800px]">
@@ -97,32 +94,6 @@ export default function JourneyPanel({ panelRef }) {
       </div>
        </div>
       </div>
-
-      {/* step rail */}
-      <div className="relative mx-1 mt-3 max-[560px]:mt-6">
-        <span aria-hidden="true" className="absolute left-[10%] right-[10%] top-[7px] h-0.5 rounded-sm bg-white/15" />
-        <span
-          aria-hidden="true"
-          style={{ width: `${80 * (active / (COUNT - 1))}%` }}
-          className="absolute left-[10%] top-[7px] h-0.5 rounded-sm bg-accent [transition:width_.8s_cubic-bezier(.65,0,.35,1)]"
-        />
-        <ol className="cn-rail relative flex">
-          {JOURNEY.map((s, i) => {
-            const done = i < active, on = i === active;
-            return (
-              <li key={s.title} className="flex flex-1 flex-col items-center gap-[9px]">
-                <span
-                  aria-hidden="true"
-                  className={`h-4 w-4 rounded-full border-2 [transition:background_.4s,border-color_.4s,transform_.5s_cubic-bezier(.34,1.56,.64,1),box-shadow_.4s]
-                              ${on ? 'scale-[1.3] border-accent-light bg-accent-light shadow-[0_0_0_6px_rgba(223,240,230,.16)]' : done ? 'border-accent bg-accent' : 'border-white/30 bg-deep'}`}
-                />
-                <span className={`text-[12.5px] transition-colors duration-[400ms] max-[560px]:text-[10.5px] ${on ? 'font-semibold text-white' : done ? 'text-white/70' : 'text-white/45'}`}>
-                  {s.title}
-                </span>
-              </li>
-            );
-          })}
-        </ol>
       </div>
     </div>
   );

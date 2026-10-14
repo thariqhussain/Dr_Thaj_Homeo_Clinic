@@ -37,8 +37,13 @@
   }
   /* once dotField.js has drawn the same dots on a canvas, the CSS copy steps aside */
   .hero-dots.is-live { background-image: none; -webkit-mask-image: none; mask-image: none; }
+  /* page-load sequence, step 1: the dot grid fades in first (lib/intro.js explains the order) */
+  .dots-intro { animation: dots-in .8s ease-out both; }
+  @media (prefers-reduced-motion: reduce) { .dots-intro { animation: none; } }
+  /* sprigs stay undrawn until the doctor photo is in (HeroBackdrop removes this class then) */
+  .sprigs-wait .sprig-path { animation-play-state: paused; }
   /* botanical sprigs draw themselves once (paths carry pathLength="1"), then stay still */
-  .sprig-path { stroke-dasharray: 1; stroke-dashoffset: 0; animation: sprig-draw 1.6s cubic-bezier(.22,.61,.36,1) both; }
+  .sprig-path { stroke-dasharray: 1; stroke-dashoffset: 0; animation: sprig-draw .9s cubic-bezier(.22,.61,.36,1) both; }
   @media (prefers-reduced-motion: reduce) { .sprig-path { animation: none; } }
 
   /* ── fixed page background ── */
@@ -237,4 +242,5 @@
 /* animated custom property for the doctor name-plate border */
 @property --dp-angle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
 @keyframes dp-angle { to { --dp-angle: 360deg; } }
+@keyframes dots-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes sprig-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }

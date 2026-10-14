@@ -1,7 +1,8 @@
 import { useLayoutEffect, useRef, useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { gsap } from '../lib/gsap';
 import JourneyPanel from './JourneyPanel';
-import { MAPS_URL, REVIEWS_URL } from '../data/content';
+import { MAPS_URL, REVIEWS_URL, SOCIALS } from '../data/content';
 import { useSpotlight } from '../hooks/useSpotlight';
 import { prefersReducedMotion } from '../lib/utils';
 
@@ -34,11 +35,47 @@ function SocialItem({ href, label, sub, acc, iconWrap, children }) {
   );
 }
 
+/* Instagram + Facebook QR codes. The links come from SOCIALS in content.js (the same entries the footer uses),
+   so a QR only appears when that account has a url. The whole card is also a normal link: scan it, or just tap it. */
+const QR_ITEMS = [
+  { icon: 'instagram', label: 'Instagram', acc: '#e1306c',
+    glyph: <><rect x="3.5" y="3.5" width="17" height="17" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.2" cy="6.8" r=".6" fill="currentColor" /></> },
+  { icon: 'facebook', label: 'Facebook', acc: '#1877f2',
+    glyph: <path d="M14 8.5h2.5V5H14a3.5 3.5 0 0 0-3.5 3.5V11H8v3.5h2.5V21H14v-6.5h2.4l.6-3.5H14V8.9c0-.2.2-.4.4-.4z" /> },
+];
+
+function QrCard({ href, label, acc, glyph }) {
+  const ref = useRef(null);
+  useSpotlight(ref);
+  return (
+    <li>
+      <a
+        ref={ref} href={href} target="_blank" rel="noopener" aria-label={`Open our ${label} page (or scan the QR code)`} style={{ '--acc': acc }}
+        className="social-item spotlight relative flex h-full flex-col items-center gap-2.5 overflow-hidden rounded-[18px] border border-line bg-white/[.78] p-3 text-center text-p7 no-underline
+                   max-[1099px]:flex-row max-[1099px]:gap-4 max-[1099px]:text-left
+                   focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-accent"
+      >
+        <span className="block w-[104px] flex-none rounded-xl border border-line bg-white p-1.5 shadow-[0_8px_18px_-12px_rgba(33,37,41,.4)]">
+          <QRCodeSVG value={href} size={96} level="M" marginSize={1} bgColor="#ffffff" fgColor="#212529" className="block h-auto w-full" aria-hidden="true" />
+        </span>
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="flex items-center justify-center gap-1.5 text-[15px] font-semibold text-p9 max-[1099px]:justify-start">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ color: acc }}>{glyph}</svg>
+            {label}
+          </span>
+          <span className="text-[12px] leading-snug text-p6">Scan or tap to open</span>
+        </span>
+      </a>
+    </li>
+  );
+}
+
 export default function Connect() {
   const section = useRef(null);
   const ratingRef = useRef(null);
   const [score, setScore] = useState('5.0');
   useSpotlight(ratingRef);
+  const qrCards = QR_ITEMS.map((q) => ({ ...q, href: SOCIALS.find((s) => s.icon === q.icon)?.url })).filter((q) => q.href);
 
   /* entrance timeline (layout effect so there's no flash before it starts) */
   useLayoutEffect(() => {
@@ -55,8 +92,7 @@ export default function Connect() {
         .from('.cn-star', { opacity: 0, scale: 0.2, rotation: -60, duration: 0.5, stagger: 0.09, ease: 'back.out(2)' }, '<0.3')
         .from('.social-item', { y: 36, opacity: 0, duration: 0.7, stagger: 0.12, clearProps: 'transform,opacity' }, '-=0.9')
         .from('.cn-right', { y: 50, opacity: 0, duration: 0.9 }, '-=1.1')
-        .from('.journey-carousel', { scale: 0.82, opacity: 0, duration: 1 }, '-=0.5')
-        .from('.cn-rail li', { y: 14, opacity: 0, duration: 0.5, stagger: 0.08 }, '-=0.5');
+        .from('.journey-carousel', { scale: 0.82, opacity: 0, duration: 1 }, '-=0.5');
     }, section);
     return () => ctx.revert();
   }, []);
@@ -70,8 +106,12 @@ export default function Connect() {
       <span aria-hidden="true" className="orb pause-offscreen z-0 -right-20 -top-[120px] h-[360px] w-[360px] animate-cn-float bg-accent/[.26] motion-reduce:animate-none" />
       <span aria-hidden="true" className="orb pause-offscreen z-0 -bottom-[100px] -left-[90px] h-[320px] w-[320px] animate-cn-float-rev bg-accent-light/95 motion-reduce:animate-none" />
 
-      {/* two columns: [heading + rating + links] | [care journey] — the heading moved into the left column to save a whole row of height */}
-      <div className="relative z-[1] mx-auto grid max-w-[1120px] grid-cols-[1fr_1.15fr] items-stretch gap-4 max-[900px]:grid-cols-1">
+      {/* columns: [heading + rating + links] | [care journey] | [Instagram + Facebook QR codes, stacked vertically].
+          Below 1100px the QR cards drop under the other two and sit side by side. */}
+      <div
+        className={`relative z-[1] mx-auto grid items-stretch gap-4 max-[900px]:grid-cols-1
+                    ${qrCards.length ? 'max-w-[1240px] grid-cols-[1fr_1.15fr_160px] max-[1099px]:max-w-[1120px] max-[1099px]:grid-cols-[1fr_1.15fr]' : 'max-w-[1120px] grid-cols-[1fr_1.15fr]'}`}
+      >
         <div className="flex flex-col gap-3 text-left">
           <header className="cn-head">
             <p className="eyebrow eyebrow-light !mb-1">Find us online</p>
@@ -111,8 +151,18 @@ export default function Connect() {
           </ul>
         </div>
 
-        {/* RIGHT — journey */}
+        {/* MIDDLE — journey */}
         <JourneyPanel />
+
+        {/* RIGHT — QR codes, one under the other */}
+        {qrCards.length > 0 && (
+          <ul
+            aria-label="Scan to follow us on social media"
+            className="m-0 grid list-none grid-cols-1 gap-3 p-0 max-[1099px]:col-span-full max-[1099px]:grid-cols-2 max-[640px]:grid-cols-1"
+          >
+            {qrCards.map((q) => <QrCard key={q.icon} href={q.href} label={q.label} acc={q.acc} glyph={q.glyph} />)}
+          </ul>
+        )}
       </div>
     </section>
   );

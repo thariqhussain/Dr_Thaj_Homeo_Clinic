@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { gsap, ScrollTrigger } from '../lib/gsap';
 import { STATS } from '../data/content';
-import { computeStat } from '../lib/utils';
+import { computeStat, prefersReducedMotion } from '../lib/utils';
+import { onIntro } from '../lib/intro';
+import { useIntroReveal } from '../hooks/useIntroReveal';
 
 function Counter({ config, play }) {
   const target = computeStat(config);
@@ -11,7 +13,7 @@ function Counter({ config, play }) {
     if (!play) return;
     const obj = { v: 0 };
     const tween = gsap.to(obj, {
-      v: target, duration: 2, ease: 'power2.out',
+      v: target, duration: 1.2, ease: 'power2.out',
       onUpdate: () => setValue(Math.floor(obj.v)),
       onComplete: () => setValue(target),
     });
@@ -30,18 +32,24 @@ export default function HeroStats() {
   const ref = useRef(null);
   const [play, setPlay] = useState(false);
 
+  useIntroReveal(ref, { y: 40, delay: 0.4, duration: 0.8 });   // the stats card is the last thing to arrive
+
+  /* counters start once the card has been revealed AND scrolled into view */
   useEffect(() => {
+    let seen = false, ready = prefersReducedMotion(), timer = 0;
+    const go = () => { if (seen && ready) setPlay(true); };
+    const off = ready ? () => {} : onIntro('doctor', () => { timer = setTimeout(() => { ready = true; go(); }, 400); });
     const st = ScrollTrigger.create({
       trigger: ref.current, start: 'top 95%', once: true,
-      onEnter: () => setPlay(true),
+      onEnter: () => { seen = true; go(); },
     });
-    return () => st.kill();
+    return () => { off(); clearTimeout(timer); st.kill(); };
   }, []);
 
   return (
     <div
       ref={ref}
-      className="hero-stats relative z-[1] mx-auto grid w-full max-w-[1180px] animate-hero-stats-in grid-cols-[1.4fr_1fr_1fr_1fr] items-end gap-9 overflow-hidden rounded-[28px] bg-p9/90 px-[52px] py-9 text-p3
+      className="hero-stats relative z-[1] mx-auto grid w-full max-w-[1180px] grid-cols-[1.4fr_1fr_1fr_1fr] items-end gap-9 overflow-hidden rounded-[28px] bg-p9/90 px-[52px] py-9 text-p3
                  max-lg:grid-cols-3 max-lg:gap-6 max-lg:rounded-3xl max-lg:px-8 max-lg:py-8
                  max-sm:grid-cols-3 max-sm:items-start max-sm:gap-3 max-sm:rounded-[22px] max-sm:px-5 max-sm:py-6
                  max-[375px]:gap-2.5 max-[375px]:rounded-[18px] max-[375px]:px-4 max-[375px]:py-5

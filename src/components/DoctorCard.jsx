@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
-import { gsap } from '../lib/gsap';
+import { gsap, ScrollTrigger } from '../lib/gsap';
+import { introDone, onIntro } from '../lib/intro';
 import { useMagnetic } from '../hooks/useMagnetic';
 import { canHover, prefersReducedMotion } from '../lib/utils';
 import './DoctorCard.css';
@@ -29,18 +30,31 @@ export default function DoctorCard() {
 
   useLayoutEffect(() => {
     if (prefersReducedMotion()) return;
+    let offNav = () => {};
     const ctx = gsap.context(() => {
-      gsap.timeline({ defaults: { ease: 'power3.out' }, scrollTrigger: { trigger: card.current, start: 'top 90%', once: true } })
+      /* paused on purpose: it starts once the navbar intro has finished AND the card is on screen.
+         The portrait comes first; ~0.65s in (as it finishes rising) it tells the rest of the hero to start. */
+      const tl = gsap.timeline({ paused: true, defaults: { ease: 'power3.out' } })
         .fromTo('.dc-arch-clip', { clipPath: 'inset(100% 0% 0% 0%)' },
-          { clipPath: 'inset(0% 0% 0% 0%)', duration: 1.1, ease: 'power4.inOut', clearProps: 'clipPath' })
-        .from('.dc-cut', { y: 70, opacity: 0, duration: 1.2 }, '<0.35')
-        .from('.dc-ring', { scale: 0.7, opacity: 0, duration: 1.2 }, '<0.1')
-        .from('.dc-eyebrow', { y: 14, opacity: 0, duration: 0.6 }, '-=0.9')
-        .from('.dc-plate', { x: 40, opacity: 0, scale: 0.96, duration: 0.8 }, '-=0.5')
-        .from('.dc-line > span', { yPercent: 115, duration: 0.9, stagger: 0.12 }, '-=0.5')
-        .from('.dc-bio', { y: 20, opacity: 0, duration: 0.7 }, '-=0.5')
-        .from('.dc-cta', { y: 20, opacity: 0, duration: 0.7 }, '-=0.45')
-        .from('.dc-badge', { scale: 0.5, opacity: 0, duration: 0.7, ease: 'back.out(1.8)' }, '-=0.6');
+          { clipPath: 'inset(0% 0% 0% 0%)', duration: 0.8, ease: 'power4.inOut', clearProps: 'clipPath' })
+        .from('.dc-cut', { y: 70, opacity: 0, duration: 0.9 }, '<0.25')
+        .from('.dc-ring', { scale: 0.7, opacity: 0, duration: 0.9 }, '<0.1')
+        .from('.dc-eyebrow', { y: 14, opacity: 0, duration: 0.45 }, '-=0.7')
+        .from('.dc-plate', { x: 40, opacity: 0, scale: 0.96, duration: 0.6 }, '-=0.4')
+        .from('.dc-line > span', { yPercent: 115, duration: 0.7, stagger: 0.1 }, '-=0.4')
+        .from('.dc-bio', { y: 20, opacity: 0, duration: 0.5 }, '-=0.4')
+        .from('.dc-cta', { y: 20, opacity: 0, duration: 0.5 }, '-=0.35')
+        .from('.dc-badge', { scale: 0.5, opacity: 0, duration: 0.5, ease: 'back.out(1.8)' }, '-=0.4')
+        .add(() => introDone('doctor'), 0.65);
+
+      let navOk = false, seen = false, played = false;
+      const tryPlay = () => { if (navOk && seen && !played) { played = true; tl.play(); } };
+      ScrollTrigger.create({ trigger: card.current, start: 'top 90%', once: true, onEnter: () => { seen = true; tryPlay(); } });
+      offNav = onIntro('nav', () => {
+        navOk = true;
+        if (!seen) introDone('doctor');   // card is below the fold (phones): don't hold the headline back, the card plays when scrolled to
+        tryPlay();
+      }, 5000);
 
       /* pointer-only: the arch tilts, and the pop-out cut-out slides the opposite way for depth */
       if (canHover()) {
@@ -60,7 +74,7 @@ export default function DoctorCard() {
         visual.addEventListener('pointerleave', () => { rx(0); ry(0); px(0); py(0); });
       }
     }, card);
-    return () => ctx.revert();
+    return () => { offNav(); ctx.revert(); };
   }, []);
 
   /* hover swap to the second photo (skipped for reduced motion; falls back to the plain <img>).

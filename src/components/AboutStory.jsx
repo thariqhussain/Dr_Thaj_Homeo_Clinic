@@ -32,6 +32,17 @@ export default function AboutStory() {
           y: 20, opacity: 0, duration: 0.8, stagger: 0.1, ease: 'power3.out',
           scrollTrigger: { trigger: '.as-head', start: 'top 85%', once: true },
         });
+
+        /* logo card — two-layer parallax:
+           1) the whole card drifts a little against the scroll, so it moves at a different speed to the text cards
+           2) the photo inside slides the other way behind the card's rounded window */
+        const logoScroll = { trigger: '.as-logo', start: 'top bottom', end: 'bottom top', scrub: true };
+        gsap.from('.as-logo-frame', {
+          y: 36, opacity: 0, scale: 0.97, duration: 1, ease: 'power3.out',
+          scrollTrigger: { trigger: '.as-logo', start: 'top 88%', once: true },
+        });
+        gsap.fromTo('.as-logo', { y: 28 }, { y: -28, ease: 'none', scrollTrigger: logoScroll });
+        gsap.fromTo('.as-logo-img', { yPercent: -7 }, { yPercent: 7, ease: 'none', scrollTrigger: logoScroll });
       }
     }, section);
     return () => ctx.revert();
@@ -103,6 +114,20 @@ export default function AboutStory() {
               Dr. Thaj Homoeo Clinic in Minjur, Chennai, pairs homoeopathic medicine with time to listen.
             </p>
           </header>
+
+          {/* clinic logo — sits in the text column, scrolls with the cards, parallax in the effect above.
+              Photo: public/assets/about/clinic_logo_showcase.webp. It is taller than its window (h-[120%], -top-[10%])
+              so the parallax slide never shows an empty edge. On phones it comes after the story cards. */}
+          <div className="as-logo relative mb-4 max-lg:order-4 max-lg:mt-4">
+            <div className="as-logo-frame relative aspect-[4/3] w-full overflow-hidden rounded-[22px] bg-[#1c1a19] shadow-[0_30px_60px_-28px_rgba(33,37,41,.45),0_0_0_6px_rgba(255,255,255,.7)] lg:rounded-[26px]">
+              <img
+                src="/assets/about/clinic_logo_showcase.webp" alt="Dr. Thaj Homoeo Clinic logo"
+                width="1500" height="981" loading="lazy" decoding="async" draggable="false"
+                className="as-logo-img absolute inset-x-0 -top-[10%] h-[120%] w-full select-none object-cover will-change-transform"
+              />
+              <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] shadow-[inset_0_0_0_1px_rgba(255,255,255,.12)]" />
+            </div>
+          </div>
 
           <ol className="flex flex-col gap-2 max-lg:order-3">
             {ABOUT_STORY.map((s, i) => {
