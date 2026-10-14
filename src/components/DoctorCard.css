@@ -11,7 +11,9 @@
   margin-inline: auto;
   --dc-extend: 7cqw;      /* how far the photo sticks out above the eyebrow and below the bio */
 }
-@media (min-width: 1024px) { .dc { margin-right: 0; margin-left: auto; } }
+@media (min-width: 1100px) { .dc { margin-right: 0; margin-left: auto; } }
+/* tablets (stacked hero): give the portrait's head room so it doesn't touch the buttons above */
+@media (min-width: 640px) and (max-width: 1099px) { .dc { margin-top: 56px; } }
 
 .dc-grid {
   display: grid;
@@ -128,27 +130,32 @@
 
    1. A bare `1fr` column can't shrink below its content, so it's `minmax(0, 1fr)` here.
    2. The bio is cut to about half, with a "Show more" link, so the text column is short.
-   3. The arch no longer stretches to the text height. It is a fixed, shorter shape
-      (aspect-ratio below) and the cut-out portrait is taller than it, so the doctor
-      rises above the curve and overlaps it, like on desktop.
-      → more overlap: make the second number of the arch aspect-ratio smaller (e.g. 1 / 1)
-      → less overlap: make it bigger (e.g. 1 / 1.2)
+   3. The arch no longer stretches to the text height. It is a fixed shape (aspect-ratio below)
+      and the cut-out portrait is taller than it, so the doctor rises above the curve like on desktop.
+      → doctor bigger / smaller: change the photo column width (54cqw) and --dc-photo-w (115%)
+      → head rises more / less above the arch: change the arch aspect-ratio's second number
+        and keep `.dc-visual` margin-top about 1cqw above the amount it rises
+   4. The "Request Appointment" button is hidden on phones (the navbar and floating buttons cover booking).
 ════════════════════════════════════════════════════════════ */
 @media (max-width: 639px) {
-  .dc-grid { grid-template-columns: minmax(0, 1fr) 46cqw; column-gap: 5cqw; align-items: start; }
+  .dc-grid { grid-template-columns: minmax(0, 1fr) 54cqw; column-gap: 3cqw; align-items: start; }
 
   /* photo column: shorter arch + room above it for the head that now sticks out */
-  .dc-visual { margin: 13cqw 0 0; }
+  .dc-visual { margin: 10cqw 0 0; }
   .dc-arch { height: auto; }
-  .dc-arch-clip { height: auto; min-height: 0; aspect-ratio: 1 / 1.08; }
-  .dc-cut { --dc-photo-w: 108%; }
+  .dc-arch-clip { height: auto; min-height: 0; aspect-ratio: 1 / 1.28; }
+  .dc-cut { --dc-photo-w: 115%; }
   .dc-ring { left: -3cqw; top: -3cqw; width: calc(100% + 6cqw); }
   .dc-badge { right: 0; bottom: 3cqw; padding: 7px 12px; font-size: 11px; }
 
   /* text column: centred against the photo, and a touch tighter */
   .dc-text { align-self: center; }
   .dc-eyebrow { margin-bottom: 10px; }
-  .dc-bio { margin: 0 0 1.5cqw; font-size: 13px; line-height: 1.6; }
+  .dc-bio { margin: 0; font-size: 13px; line-height: 1.6; }
+  /* the name plate overlaps the photo a little less now that the portrait is bigger */
+  .dc-plate { margin: 0 -9cqw 2.5cqw 0; }
+  /* no appointment button inside the doctor card on phones */
+  .dc-cta { display: none; }
 
   /* about half of the bio, then "…" and a link for the rest */
   .dc-bio:not(.is-open) .dc-bio-more { display: none; }
@@ -164,7 +171,7 @@
 /* very narrow phones (iPhone SE / 320px): stack instead of squeezing */
 @media (max-width: 339px) {
   .dc-grid { grid-template-columns: 1fr; }
-  .dc-visual { order: -1; width: 64%; margin: 19cqw auto 0; }
+  .dc-visual { order: -1; width: 80%; margin: 16cqw auto 0; }
   .dc-badge { bottom: 3cqw; }
   .dc-text { align-self: auto; align-items: center; text-align: center; margin-top: 3cqw; }
   .dc-eyebrow { display: none; }                          /* the name plate already says who this is */

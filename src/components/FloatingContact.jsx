@@ -1,6 +1,8 @@
 import { PHONES, WA_NUMBER } from '../data/content';
+import ContactDock from './ContactDock';
 
-/* Floating quick-contact buttons, bottom-right on every screen size.
+/* Floating quick-contact buttons, bottom-right on every screen size, plus the glass ContactDock pill bottom-left.
+   (To drop either one, delete its element from the return below.)
    WhatsApp opens a chat with a ready message; the call button dials the first number in PHONES.
    On desktop the buttons widen on hover/focus to show their label. */
 
@@ -26,7 +28,9 @@ function Btn({ href, label, text, bg, external, children }) {
 export default function FloatingContact() {
   const wa = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(MESSAGE)}`;
   return (
-    <div className="fixed bottom-[max(16px,env(safe-area-inset-bottom))] right-4 z-[90] flex flex-col items-end gap-3 max-sm:right-3 max-sm:gap-2.5">
+    <>
+    <ContactDock />
+    <div className="fixed bottom-[max(16px,env(safe-area-inset-bottom))] right-4 z-[90] flex flex-col items-end gap-3 max-lg:hidden">
       <Btn href={wa} external label="Chat on WhatsApp" text="Chat on WhatsApp" bg="bg-[#1fa855]">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M3 21l1.65-4.86A8.5 8.5 0 1 1 8 19.4L3 21z" />
@@ -39,5 +43,6 @@ export default function FloatingContact() {
         </svg>
       </Btn>
     </div>
+    </>
   );
 }

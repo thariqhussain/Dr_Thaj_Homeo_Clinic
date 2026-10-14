@@ -158,7 +158,7 @@ export const EMAIL = '';   // e.g. 'clinic@example.com' — hidden while empty
 /* Social links: only entries with a url are shown. icon: instagram | facebook | youtube | linkedin | x | whatsapp */
 export const SOCIALS = [
   { name: 'Instagram', icon: 'instagram', url: 'https://www.instagram.com/thajusmart/' },
-  { name: 'Facebook',  icon: 'facebook',  url: '' },
+  { name: 'Facebook',  icon: 'facebook',  url: 'https://www.facebook.com/share/1Eg7HTHXF1/' },
   { name: 'WhatsApp',  icon: 'whatsapp',  url: `https://wa.me/${WA_NUMBER}` },
 ];
 
@@ -188,6 +188,7 @@ export const RESULTS = [
   { id: 'vitiligo',    condition: 'Vitiligo',                 img: '/assets/results/vitiligo.webp' },
   { id: 'puffy-eyes',  condition: 'Puffy eyes',               img: '/assets/results/puffy_eyes.webp' },
   { id: 'jaundice',    condition: 'Jaundice',                 img: '/assets/results/jaundice.webp' },
+  { id: 'Bullous-skin-disorder', condition: 'tonsils' , img: '/assets/results/Bullous_skin_disorder.webp'},
   { id: 'rheumatoid',  condition: 'Rheumatoid arthritis',     img: '/assets/results/rheumatoid_arthritis.webp' },
   { id: 'ovarian-cyst',condition: 'Hemorrhagic ovarian cyst', img: '/assets/results/hemorrhagic_right_ovarian_cyst.webp' },
   { id: 'ureteric',    condition: 'Ureteric calculus',        img: '/assets/results/ureteric_calculus.webp' },
@@ -201,20 +202,21 @@ export const RESULTS = [
 
 /* Highlights & updates strip — images in /public/assets/gallery, shown in this order. Empty = section hidden. */
 export const CLINIC_PHOTOS = [
-  { src: '/assets/hero-images/clinicImg1.webp', alt: 'Describe image 5' },
-  { src: '/assets/hero-images/clinicImg2.webp', alt: 'Describe image 5' },
-  { src: '/assets/hero-images/clinicImg10.webp', alt: 'Describe image 5' },
-  { src: '/assets/hero-images/clinicImg11.webp', alt: 'Describe image 5' },
+  { src: '/assets/hero-images/clinicImg1.webp', alt: 'Describe image 1' },
+  { src: '/assets/hero-images/clinicImg2.webp', alt: 'Describe image 2' },
+  { src: '/assets/hero-images/clinicImg10.webp', alt: 'Describe image 3' },
+  { src: '/assets/hero-images/clinicImg17.webp', alt: 'Describe image 11' },
   { src: '/assets/hero-images/clinicImg3.webp', alt: 'Describe image 5' },
-  { src: '/assets/hero-images/clinicImg12.webp', alt: 'Describe image 3' },
-  { src: '/assets/hero-images/clinicImg13.webp', alt: 'Describe image 5' },
-  { src: '/assets/hero-images/clinicImg14.webp', alt: 'Describe image 4' },
-  { src: '/assets/hero-images/clinicImg15.webp', alt: 'Describe image 5' },
-  { src: '/assets/hero-images/clinicImg16.webp', alt: 'Describe image 5' },
-  { src: '/assets/gallery/gallery5.webp', alt: 'Describe image 5' },
-  { src: '/assets/gallery/gallery2.webp', alt: 'Describe image 2' },
-  { src: '/assets/gallery/gallery1.webp', alt: 'Describe image 1' },
-  { src: '/assets/gallery/gallery3.webp', alt: 'Describe image 3' },
+  { src: '/assets/hero-images/clinicImg12.webp', alt: 'Describe image 6' },
+  { src: '/assets/hero-images/clinicImg13.webp', alt: 'Describe image 7' },
+  { src: '/assets/hero-images/clinicImg14.webp', alt: 'Describe image 8' },
+  { src: '/assets/hero-images/clinicImg15.webp', alt: 'Describe image 9' },
+  { src: '/assets/hero-images/clinicImg16.webp', alt: 'Describe image 10' },
+  
+  { src: '/assets/gallery/gallery5.webp', alt: 'Describe image 12' },
+  { src: '/assets/gallery/gallery2.webp', alt: 'Describe image 13' },
+  { src: '/assets/gallery/gallery1.webp', alt: 'Describe image 14' },
+  { src: '/assets/gallery/gallery3.webp', alt: 'Describe image 15' },
 ];
 
 /* FAQ — answers are written for this clinic. Edit freely; the structured data for Google is built from this list. */

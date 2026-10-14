@@ -3,6 +3,8 @@ export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
     extend: {
+      /* desktop layout starts at 1100px, so every portrait iPad (768-1032px) gets the same stacked layout */
+      screens: { lg: '1100px' },
       /* The old CSS variables (--p1 … --p9, --accent …) become theme colours.
          Use them as text-p9, bg-p7, border-accent, etc.
          Old token → new class:
