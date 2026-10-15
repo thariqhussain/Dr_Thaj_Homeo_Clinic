@@ -23,3 +23,16 @@ export function computeStat({ stat, startYear, baseCount, baseYear, baseMonth, m
   }
   return count || 0;
 }
+
+/* Smooth-scroll a horizontal strip to `left` (clamped to the strip's real range).
+   Browsers can silently ignore or cancel a smooth scroll on a scroll-snap strip, which made the arrow buttons look
+   frozen. So: if nothing has moved after a moment, jump straight to the target. Used by every arrow-driven strip. */
+export function glideTo(el, left) {
+  const max = Math.max(0, el.scrollWidth - el.clientWidth);
+  const target = Math.min(max, Math.max(0, Math.round(left)));
+  const from = el.scrollLeft;
+  if (Math.abs(target - from) < 2) return;
+  if (prefersReducedMotion()) { el.scrollLeft = target; return; }
+  el.scrollTo({ left: target, behavior: 'smooth' });
+  setTimeout(() => { if (Math.abs(el.scrollLeft - from) < 2) el.scrollLeft = target; }, 450);
+}

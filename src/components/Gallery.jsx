@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { glideTo } from '../lib/utils';
 import { CLINIC_PHOTOS } from '../data/content';
 
 /* Highlights & updates: ONE horizontal strip of images.
@@ -8,13 +9,13 @@ import { CLINIC_PHOTOS } from '../data/content';
 
 const N = CLINIC_PHOTOS.length;
 
-const Arrow = ({ dir, disabled, onClick }) => (
+const Arrow = ({ dir, atEdge, onClick }) => (
   <button
-    type="button" aria-label={dir < 0 ? 'Previous image' : 'Next image'} disabled={disabled} onClick={onClick}
-    className="grid h-11 w-11 cursor-pointer place-items-center rounded-full border border-line bg-white/90 text-p9 shadow-[0_8px_20px_-8px_rgba(33,37,41,.5)]
-               [transition:opacity_.25s,background_.25s,transform_.3s_cubic-bezier(.34,1.4,.64,1)] hover:bg-accent-light enabled:active:scale-95
-               disabled:cursor-default disabled:opacity-35 motion-reduce:transition-none
-               focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-accent"
+    type="button" aria-label={dir < 0 ? 'Previous image' : 'Next image'} aria-disabled={atEdge || undefined} onClick={onClick}
+    className={`grid h-11 w-11 cursor-pointer place-items-center rounded-full border border-line bg-white/90 text-p9 shadow-[0_8px_20px_-8px_rgba(33,37,41,.5)]
+               [transition:opacity_.25s,background_.25s,transform_.3s_cubic-bezier(.34,1.4,.64,1)] hover:bg-accent-light active:scale-95
+               motion-reduce:transition-none ${atEdge ? 'opacity-35' : ''}
+               focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-accent`}
   >
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
       <path d={dir < 0 ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'} />
@@ -40,8 +41,11 @@ export default function Gallery() {
 
   useEffect(() => {
     updateEdge();
+    const el = strip.current;
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateEdge) : null;
+    if (ro && el) { ro.observe(el); [...el.children].forEach((c) => ro.observe(c)); }   // photos load late and change the strip's width
     window.addEventListener('resize', updateEdge);
-    return () => window.removeEventListener('resize', updateEdge);
+    return () => { ro?.disconnect(); window.removeEventListener('resize', updateEdge); };
   }, [updateEdge]);
 
   /* move to the next / previous image (images differ in width, so find the one nearest the left edge) */
@@ -53,7 +57,7 @@ export default function Gallery() {
     let cur = 0;
     items.forEach((it, i) => { if (Math.abs(it.offsetLeft - items[0].offsetLeft - left) < Math.abs(items[cur].offsetLeft - items[0].offsetLeft - left)) cur = i; });
     const target = Math.min(items.length - 1, Math.max(0, cur + dir));
-    el.scrollTo({ left: items[target].offsetLeft - items[0].offsetLeft, behavior: 'smooth' });
+    glideTo(el, items[target].offsetLeft - items[0].offsetLeft);
   };
 
   /* ── the larger view ── */
@@ -86,8 +90,8 @@ export default function Gallery() {
             <p className="text-[15px] leading-[1.7] text-p7">Moments and updates from Dr. Thaj Homoeo Clinic. Use the arrows to browse.</p>
           </div>
           <div className="flex flex-none gap-2.5">
-            <Arrow dir={-1} disabled={edge.start} onClick={() => step(-1)} />
-            <Arrow dir={1} disabled={edge.end} onClick={() => step(1)} />
+            <Arrow dir={-1} atEdge={edge.start} onClick={() => step(-1)} />
+            <Arrow dir={1} atEdge={edge.end} onClick={() => step(1)} />
           </div>
         </header>
 
@@ -104,7 +108,7 @@ export default function Gallery() {
                            focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-accent"
               >
                 <img
-                  src={p.src} alt={p.alt} loading="lazy" decoding="async" draggable="false"
+                  src={p.src} alt={p.alt} loading="lazy" decoding="async" draggable="false" onLoad={updateEdge}
                   className="block h-[clamp(260px,52svh,460px)] w-auto max-w-[calc(100vw-40px)] object-contain transition-transform duration-[700ms] ease-[cubic-bezier(.22,.61,.36,1)] group-hover:scale-[1.03] motion-reduce:transition-none"
                 />
               </button>

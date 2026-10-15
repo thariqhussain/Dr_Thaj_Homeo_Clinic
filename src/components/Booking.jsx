@@ -71,6 +71,15 @@ const prettyPhone = (v) => {
    used on purpose: it survives reloads but is dropped when the tab is closed, so health details don't linger on a
    shared computer. To keep drafts even after the browser is closed, change `sessionStorage` to `localStorage`
    in the three places below. */
+/* ── automatic sending ──
+   OFF by default. Until VITE_BOOKING_API is set (at build time), Confirm simply opens WhatsApp with the message filled in,
+   exactly as before — nothing else is needed and api/book.js can be left out of the project.
+   To turn automatic sending on: deploy api/book.js, set VITE_BOOKING_API=/api/book, and rebuild (see WHATSAPP_SETUP.md).
+   Confirm then posts the request there and the server sends the WhatsApp message to the clinic by itself.
+   If that request fails (no internet, WhatsApp rejects it…), the patient gets a "Send on WhatsApp" button with the same
+   message ready to send, so a booking is never lost. */
+const BOOKING_API = import.meta.env?.VITE_BOOKING_API || '';
+
 const DRAFT_KEY = 'drthaj:booking-draft';
 const ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
 const str = (v, max) => (typeof v === 'string' ? v.slice(0, max) : '');
@@ -216,7 +225,10 @@ export default function Booking() {
   const [invalid, setInvalid] = useState({});           // { fieldName: true | 'error message' }
   const [slotInvalid, setSlotInvalid] = useState(false);
   const [warning, setWarning] = useState('');           // '' = hidden
-  const [done, setDone] = useState(false);              // success screen after WhatsApp opens
+  const [done, setDone] = useState(false);              // success screen after the request has been sent
+  const [sentMode, setSentMode] = useState('auto');      // 'auto' = sent by the server, 'manual' = patient sends it on WhatsApp
+  const [sending, setSending] = useState(false);         // request in flight
+  const [waLink, setWaLink] = useState('');              // fallback wa.me link, shown only if automatic sending failed
   const [now, setNow] = useState(() => new Date());     // ticks every minute → "live" availability
   const panel = useRef(null);
 
@@ -325,8 +337,16 @@ export default function Booking() {
     goTo(step + 1);
   };
 
-  const submit = () => {
-    /* safety net: never send a message with an invalid name / phone */
+  /* request sent (or handed to WhatsApp): forget the saved draft, clear the form and show the confirmation screen */
+  const finish = (mode) => {
+    try { sessionStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+    setForm(EMPTY); setSlot(''); setInvalid({}); setSlotInvalid(false); setWarning(''); setWaLink('');
+    setSentMode(mode); setDone(true);
+  };
+
+  const submit = async () => {
+    if (sending) return;
+    /* safety net: never send a request with an invalid name / phone */
     const nameErr = validateName(form.name), phoneErr = validatePhone(form.phone);
     if (nameErr || phoneErr) {
       setInvalid({ name: nameErr || false, phone: phoneErr || false });
@@ -335,25 +355,57 @@ export default function Booking() {
       return;
     }
 
+    const details = {
+      name: form.name.trim().replace(/\s+/g, ' '),
+      phone: prettyPhone(form.phone),
+      dob: form.dob ? fmtShort(form.dob) : '',
+      service: form.service,
+      date: fmtShort(form.prefDate),
+      time: slotLabel,
+      problem: form.reason.trim(),
+    };
     /* optional lines (date of birth, problem) are left out when empty */
-    const lines = [
+    const text = [
       'Hello Doctor, I would like to book an appointment. My details:', '',
-      `Name: ${form.name.trim().replace(/\s+/g, ' ')}`,
-      `Phone: ${prettyPhone(form.phone)}`,
-      form.dob ? `Date of Birth: ${fmtShort(form.dob)}` : null,
-      `Treatment: ${form.service}`,
-      `Preferred Date: ${fmtShort(form.prefDate)}`,
-      `Preferred Time: ${slotLabel}`,
-      form.reason.trim() ? `Problem: ${form.reason.trim()}` : null,
+      `Name: ${details.name}`,
+      `Phone: ${details.phone}`,
+      details.dob ? `Date of Birth: ${details.dob}` : null,
+      `Treatment: ${details.service}`,
+      `Preferred Date: ${details.date}`,
+      `Preferred Time: ${details.time}`,
+      details.problem ? `Problem: ${details.problem}` : null,
       '', 'Thank you 🙏',
     ].filter((l) => l !== null).join('\n');
 
-    window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(lines)}`, '_blank');
+    const waUrl = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(text)}`;
 
-    /* request sent: forget the saved draft, clear the form and show the confirmation screen */
-    try { sessionStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
-    setForm(EMPTY); setSlot(''); setInvalid({}); setSlotInvalid(false); setWarning('');
-    setDone(true);
+    /* automatic sending not switched on: open WhatsApp with the message filled in (the patient presses send) */
+    if (!BOOKING_API) {
+      window.open(waUrl, '_blank');
+      finish('manual');
+      return;
+    }
+
+    setSending(true); setWarning(''); setWaLink('');
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15000);
+    try {
+      const res = await fetch(BOOKING_API, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(details), signal: ctrl.signal,
+      });
+      /* count it as sent only if the server really answered { ok: true } (a missing /api/book can return the homepage with status 200) */
+      const data = await res.json().catch(() => null);
+      if (!res.ok || data?.ok !== true) throw new Error(`status ${res.status}`);
+      finish('auto');
+    } catch {
+      /* could not send by itself: offer the ready-made WhatsApp message (a tap, so browsers allow it to open) */
+      setWaLink(waUrl);
+      setWarning("We couldn't send your request automatically. Please send it on WhatsApp instead — your details are filled in.");
+    } finally {
+      clearTimeout(timer);
+      setSending(false);
+    }
   };
 
   const restart = () => { setDone(false); setStep(0); };
@@ -415,9 +467,11 @@ export default function Booking() {
         {done ? (
           <div ref={panel} role="status" className="rounded-2xl border border-accent/40 bg-accent/10 p-7 text-center">
             <span className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-accent text-xl text-white" aria-hidden="true">✓</span>
-            <h3 className="mb-2 font-display text-2xl font-normal text-p1">Your request is ready</h3>
+            <h3 className="mb-2 font-display text-2xl font-normal text-p1">{sentMode === 'auto' ? 'Request sent' : 'Your request is ready'}</h3>
             <p className="mx-auto mb-6 max-w-[360px] text-sm leading-relaxed text-p3">
-              WhatsApp opened with your details. Send the message to complete your request — our team will confirm your slot shortly.
+              {sentMode === 'auto'
+                ? 'Your appointment request has been sent to the clinic. Our team will contact you shortly to confirm your slot.'
+                : 'WhatsApp opened with your details. Send the message to complete your request — our team will confirm your slot shortly.'}
             </p>
             <button type="button" onClick={restart} className="cursor-pointer rounded-[10px] border-[1.5px] border-p7 bg-transparent px-5 py-2.5 font-body text-sm text-p1 transition-[border-color] duration-200 hover:border-accent">
               Book another appointment
@@ -546,9 +600,17 @@ export default function Booking() {
             </div>
 
             {warning && (
-              <p role="alert" className="mt-3.5 mb-0 flex items-center gap-2 rounded-lg border border-[#ff6b6b]/40 bg-warn-bg px-3.5 py-2.5 text-[13px] text-[#ff6b6b]">
-                {warning}
-              </p>
+              <div role="alert" className="mt-3.5 mb-0 rounded-lg border border-[#ff6b6b]/40 bg-warn-bg px-3.5 py-2.5 text-[13px] text-[#ff6b6b]">
+                <p className="m-0">{warning}</p>
+                {waLink && (
+                  <a
+                    href={waLink} target="_blank" rel="noopener" onClick={() => finish('manual')}
+                    className="mt-2.5 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-[13px] font-semibold text-p9 no-underline transition-colors duration-200 hover:bg-accent-light"
+                  >
+                    Send on WhatsApp
+                  </a>
+                )}
+              </div>
             )}
 
             <div className="mt-4 flex gap-3">
@@ -561,15 +623,19 @@ export default function Booking() {
                 </button>
               )}
               <button
-                type="button" onClick={step === STEPS.length - 1 ? submit : next}
-                className={`flex-1 cursor-pointer rounded-[10px] border-none p-3 font-body text-[15px] font-semibold tracking-[.02em] text-p9 transition-[background,transform] duration-200 active:scale-[.99]
+                type="button" onClick={step === STEPS.length - 1 ? submit : next} disabled={sending} aria-busy={sending}
+                className={`flex-1 cursor-pointer disabled:cursor-wait disabled:opacity-70 rounded-[10px] border-none p-3 font-body text-[15px] font-semibold tracking-[.02em] text-p9 transition-[background,transform] duration-200 active:scale-[.99]
                             ${stepReady ? 'bg-p1 hover:bg-p3' : 'bg-p5 opacity-[.45]'}`}
               >
-                {step === STEPS.length - 1 ? 'Confirm Appointment' : 'Continue'}
+                {step === STEPS.length - 1 ? (sending ? 'Sending…' : 'Confirm Appointment') : 'Continue'}
               </button>
             </div>
             {step === STEPS.length - 1 && (
-              <p className="mt-3 text-center text-xs text-p5">This opens WhatsApp with your details — send the message to complete your request.</p>
+              <p className="mt-3 text-center text-xs text-p5">
+                {BOOKING_API
+                  ? 'Your request is sent straight to the clinic — there is nothing to send yourself.'
+                  : 'This opens WhatsApp with your details — send the message to complete your request.'}
+              </p>
             )}
           </>
         )}

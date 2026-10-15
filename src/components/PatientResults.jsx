@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { RESULTS } from '../data/content';
-import { prefersReducedMotion } from '../lib/utils';
+import { glideTo } from '../lib/utils';
 
 /* Patient results: one horizontal strip, two images per view (one on phones).
    Arrow buttons (or swipe / trackpad / keyboard) move the strip; tapping an image opens it full view.
@@ -15,8 +15,7 @@ const FRAME =
 const ARROW =
   'grid h-11 w-11 place-items-center rounded-full border border-accent/30 bg-white text-p9 shadow-[0_10px_24px_-12px_rgba(33,37,41,.5)] ' +
   'transition-[opacity,background,color] duration-200 hover:bg-p9 hover:text-white ' +
-  'focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-accent ' +
-  'disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-white disabled:hover:text-p9';
+  'focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-accent';
 
 function Chevron({ dir }) {
   return (
@@ -110,14 +109,18 @@ export default function PatientResults() {
     measure();
     el.addEventListener('scroll', measure, { passive: true });
     window.addEventListener('resize', measure);
-    return () => { el.removeEventListener('scroll', measure); window.removeEventListener('resize', measure); };
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    if (ro) { ro.observe(el); [...el.children].forEach((c) => ro.observe(c)); }
+    return () => { ro?.disconnect(); el.removeEventListener('scroll', measure); window.removeEventListener('resize', measure); };
   }, [measure]);
 
   const go = (dir) => {
     const el = strip.current;
     const slide = el?.firstElementChild;
     if (!slide) return;
-    el.scrollBy({ left: dir * (slide.offsetWidth + GAP) * view.perView, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+    const stepPx = slide.offsetWidth + GAP;
+    const perView = Math.max(1, Math.round((el.clientWidth + GAP) / stepPx));
+    glideTo(el, Math.round(el.scrollLeft / stepPx) * stepPx + dir * stepPx * perView);   // never depends on the dimmed state
   };
 
   const openAt = (i, e) => { opener.current = e.currentTarget; setOpen(i); };
@@ -159,8 +162,8 @@ export default function PatientResults() {
             {view.first === view.last ? `${view.first}` : `${view.first}–${view.last}`} of {n}
           </p>
           <div className="flex gap-2">
-            <button type="button" aria-label="Previous results" disabled={!view.canPrev} onClick={() => go(-1)} className={ARROW}><Chevron dir="left" /></button>
-            <button type="button" aria-label="Next results" disabled={!view.canNext} onClick={() => go(1)} className={ARROW}><Chevron dir="right" /></button>
+            <button type="button" aria-label="Previous results" aria-disabled={!view.canPrev || undefined} onClick={() => go(-1)} className={`${ARROW} ${view.canPrev ? '' : 'opacity-35'}`}><Chevron dir="left" /></button>
+            <button type="button" aria-label="Next results" aria-disabled={!view.canNext || undefined} onClick={() => go(1)} className={`${ARROW} ${view.canNext ? '' : 'opacity-35'}`}><Chevron dir="right" /></button>
           </div>
         </div>
 

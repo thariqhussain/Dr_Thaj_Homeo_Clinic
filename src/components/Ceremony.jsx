@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { glideTo } from '../lib/utils';
 
 /* "On the day of the ceremony": ONE horizontal strip of photos, shown right below Highlights & updates.
    Arrow buttons move it one image at a time (swipe / trackpad scroll works too, and snaps).
@@ -22,13 +23,13 @@ const PHOTOS = Array.from({ length: COUNT }, (_, i) => ({
   alt: `Ceremony photo ${i + 1} of ${COUNT}`,
 }));
 
-const Arrow = ({ dir, disabled, onClick }) => (
+const Arrow = ({ dir, atEdge, onClick }) => (
   <button
-    type="button" aria-label={dir < 0 ? 'Previous photo' : 'Next photo'} disabled={disabled} onClick={onClick}
-    className="grid h-11 w-11 cursor-pointer place-items-center rounded-full border border-line bg-white/90 text-p9 shadow-[0_8px_20px_-8px_rgba(33,37,41,.5)]
-               [transition:opacity_.25s,background_.25s,transform_.3s_cubic-bezier(.34,1.4,.64,1)] hover:bg-accent-light enabled:active:scale-95
-               disabled:cursor-default disabled:opacity-35 motion-reduce:transition-none
-               focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-accent"
+    type="button" aria-label={dir < 0 ? 'Previous photo' : 'Next photo'} aria-disabled={atEdge || undefined} onClick={onClick}
+    className={`grid h-11 w-11 cursor-pointer place-items-center rounded-full border border-line bg-white/90 text-p9 shadow-[0_8px_20px_-8px_rgba(33,37,41,.5)]
+               [transition:opacity_.25s,background_.25s,transform_.3s_cubic-bezier(.34,1.4,.64,1)] hover:bg-accent-light active:scale-95
+               motion-reduce:transition-none ${atEdge ? 'opacity-35' : ''}
+               focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-accent`}
   >
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d={dir < 0 ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'} />
@@ -59,8 +60,11 @@ export default function Ceremony() {
 
   useEffect(() => {
     updateEdge();
+    const el = strip.current;
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateEdge) : null;
+    if (ro && el) { ro.observe(el); [...el.children].forEach((c) => ro.observe(c)); }   // photos load late and change the strip's width
     window.addEventListener('resize', updateEdge);
-    return () => window.removeEventListener('resize', updateEdge);
+    return () => { ro?.disconnect(); window.removeEventListener('resize', updateEdge); };
   }, [updateEdge]);
 
   /* move to the next / previous photo (photos differ in width, so find the one nearest the left edge) */
@@ -75,7 +79,7 @@ export default function Ceremony() {
       if (Math.abs(it.offsetLeft - base - left) < Math.abs(items[cur].offsetLeft - base - left)) cur = i;
     });
     const target = Math.min(items.length - 1, Math.max(0, cur + dir));
-    el.scrollTo({ left: items[target].offsetLeft - base, behavior: 'smooth' });
+    glideTo(el, items[target].offsetLeft - base);
   };
 
   /* ── the larger view ── */
@@ -125,8 +129,8 @@ export default function Ceremony() {
             </p>
           </div>
           <div className="flex flex-none gap-2.5">
-            <Arrow dir={-1} disabled={edge.start} onClick={() => step(-1)} />
-            <Arrow dir={1} disabled={edge.end} onClick={() => step(1)} />
+            <Arrow dir={-1} atEdge={edge.start} onClick={() => step(-1)} />
+            <Arrow dir={1} atEdge={edge.end} onClick={() => step(1)} />
           </div>
         </header>
 
