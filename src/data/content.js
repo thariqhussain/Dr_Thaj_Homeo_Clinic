@@ -10,7 +10,7 @@ export const NAV_LINKS = [
 /* Hero stat counters — only figures taken from the clinic's Justdial listing */
 export const STATS = [
   { count: 1175, suffix: '+', label: 'Conditions treated' },
-  { count: 4.9, suffix: '', label: 'Average ratings' },
+  { count: 5, suffix: '/5', label: 'Justdial rating' },     // 5.0 from 35 ratings on Justdial (the counter shows whole numbers)
   { count: 6, suffix: '', label: 'Days a week' },
 ];
 
@@ -55,10 +55,11 @@ export const TREATMENT_CATEGORIES = [
   ] },
 ];
 
+/* Each tile opens a panel listing its conditions: `items` if given, otherwise `sub` split on commas. */
 export const TREATMENTS = [
   { cat: 'metabolic', img: 'treatment7.webp', chip: 'Thyroid', title: 'Thyroid Care', sub: 'Hypothyroidism, Hyperthyroidism, Goiter (Enlarged Thyroid)' },
-  { cat: 'metabolic', img: 'treatment1.webp', chip: 'Weight', title: 'Weight Loss Counselling' },
-  { cat: 'metabolic', img: 'treatment18.webp', chip: 'Nutrition', title: 'Nutrition Counselling' },
+  { cat: 'metabolic', img: 'treatment1.webp', chip: 'Weight', title: 'Weight Loss Counselling', items: ['Weight loss counselling', 'Nutrition counselling'] },   // confirm
+  { cat: 'metabolic', img: 'treatment18.webp', chip: 'Nutrition', title: 'Nutrition Counselling', items: ['Nutrition counselling', 'Weight loss counselling'] },   // confirm
   { cat: 'metabolic', img: 'treatment2.webp', chip: 'Metabolic', title: 'Cholesterol & Uric Acid', sub: 'Hypercholesterolemia, Hypertriglyceridemia, Hyperuricemia' },
   { cat: 'family', img: 'treatment9.webp', chip: 'Women’s health', title: 'Women’s Care', sub: 'Irregular Menses, Fibroid Uterus, Fibroadenoma, Infertility' },
   { cat: 'family', img: 'treatment10.webp', chip: 'Children', title: 'Child Health', sub: 'Pediatric Care, Mumps, Child Counselling, De-Worming' },
@@ -66,13 +67,13 @@ export const TREATMENTS = [
   { cat: 'skin', img: 'treatment8.webp', chip: 'Skin', title: 'Skin Conditions', sub: 'Eczema, Psoriasis, Drug Allergy' },
   { cat: 'skin', img: 'treatment17.webp', chip: 'Hair', title: 'Hair Care', sub: 'Hair Loss' },
   { cat: 'skin', img: 'treatment19.webp', chip: 'Wound care', title: 'Wound Care & Diabetic Foot', sub: 'Wound Dressing, First Aid, Diabetic Foot Ulcers, Periodic Foot Care' },
-  { cat: 'pain', img: 'treatment3.webp', chip: 'Pain', title: 'Migraine & Headache Management' },
+  { cat: 'pain', img: 'treatment3.webp', chip: 'Pain', title: 'Migraine & Headache Management', items: ['Migraine', 'Headache'] },
   { cat: 'pain', img: 'treatment14.webp', chip: 'Joints', title: 'Joint & Muscle Pain', sub: 'Joint Pain, Stiffness & Swelling, Gouty Arthritis, Knee Pain, Muscle Pain, Fibromyalgia' },
   { cat: 'pain', img: 'treatment15.webp', chip: 'Mind', title: 'Counselling & Mental Wellness', sub: 'Online Counselling, Couples Therapy, ADHD, Dementia' },
   { cat: 'systems', img: 'treatment11.webp', chip: 'Respiratory', title: 'Asthma & Respiratory Care', sub: 'Asthma, Bronchitis, Cough, Tonsillitis, Nebulization Therapy' },
   { cat: 'systems', img: 'treatment12.webp', chip: 'Digestive', title: 'Digestive Health', sub: 'Heart Burn, Indigestion, Gastritis, Hyperacidity, IBS, Fatty Liver, Fissure in Ano' },
   { cat: 'systems', img: 'treatment16.webp', chip: 'Stones', title: 'Kidney & Gall Bladder Stones', sub: 'Kidney Stone, Gall Bladder Stone, Cystitis' },
-  { cat: 'systems', img: 'treatment13.webp', chip: 'Tumors', title: 'Cancer & Tumor Care', sub: 'Gynaecological, Cervical, Gall Bladder & Genito-Urinary Cancer' },
+  { cat: 'systems', img: 'treatment13.webp', chip: 'Tumors', title: 'Cancer & Tumor Care', sub: 'Gynaecological, Cervical, Gall Bladder & Genito-Urinary Cancer', items: ['Gynaecological, cervical, gall bladder & genito-urinary cancer care'] },
 ];
 
 /* How many tiles each category shows → which size recipe fills the 2-row grid */
@@ -139,6 +140,8 @@ export const PHONES = [
   { display: '97910 23254', tel: '+919791023254' },
   { display: '93617 08870', tel: '+919361708870' },
 ];
+/* The clinic's own number — the ONLY number the footer shows / dials. (PHONES[0] is the doctor's personal number.) */
+export const CLINIC_PHONE = { display: '93617 08870', tel: '+919361708870' };
 export const WA_NUMBER = '919791023254'; // country code + number, no "+", spaces or dashes — bookings go here
 export const MAPS_URL = 'https://www.google.com/maps/search/?api=1&query=Dr.+Thaj+Homoeo+Clinic+Minjur+Chennai';
 export const REVIEWS_URL = 'https://www.justdial.com/Chennai/Dr-Thaj-Homoeo-Clinic-Near-Railway-Station-Minjur-Minjur/044PXX44-XX44-260301133151-H7N5_BZDET';
@@ -248,13 +251,13 @@ export const PATIENT_TAGS = [
 ];
 export const REVIEWS = [
   {
-    name: 'Dr Navin Raj',
-    text: 'My experience at Dr. Thaj Homoeo Clinic was exceptional. The staff was highly attentive, making me feel cared for. Plus, the pricing was reasonable and the booking process was incredibly easy.',
-    tags: ['Highly attentive', 'Sterilised equipment', 'Easy booking'],
+    name: 'Preeti Suresh',
+    text: "The overall treatment at this homeopathy clinic is very good.The treatment was effective.The doctor is kind, patient, and listens carefully. I'm satisfied with my treatment",
+    tags: ['Good facilities', 'Easy booking', 'Great customer service'],
   },
   {
-    name: 'Dr Harini Ayyadurai',
-    text: 'I recently visited for a follow-up appointment in the Pediatrics and OB/GYN departments, and I couldn’t be more impressed. Booking was seamless, and the customer service was outstanding.',
+    name: 'Dinesh Krishna',
+    text: 'Im DINESH , I have ear block and pain for 1week . I have never try homoeo medicines, but try this time 100% cured thanks forDR THAJ sir',
     tags: ['Good facilities', 'Easy booking', 'Great customer service'],
   },
   {
@@ -268,18 +271,8 @@ export const REVIEWS = [
     tags: ['Good facilities', 'Easy booking', 'Great customer service'],
   },
   {
-    name: 'Dinesh Krishna',
-    text: 'Im DINESH , I have ear block and pain for 1week . I have never try homoeo medicines, but try this time 100% cured thanks forDR THAJ sir',
-    tags: ['Good facilities', 'Easy booking', 'Great customer service'],
-  },
-  {
     name: 'Nandhini',
     text: "Hi, I’m Nandhini.I had been suffering from nasal blockage for more than 5 months. I tried many medications, but there was no improvement, and my condition reached a stage where surgery was suggested. After that, I consulted Dr. Thajudeen. He advised me to take the prescribed medicines properly and assured me that I would see good results within a week, without the need for surgery.As advised, I took the medicines regularly and seriously. It honestly felt like magic. Till now, I have not faced any problems — my nasal blockage and headaches are completely gone. Thank you so much, Doctor.",
-    tags: ['Good facilities', 'Easy booking', 'Great customer service'],
-  },
-  {
-    name: 'Preeti Suresh',
-    text: "The overall treatment at this homeopathy clinic is very good.The treatment was effective.The doctor is kind, patient, and listens carefully. I'm satisfied with my treatment",
     tags: ['Good facilities', 'Easy booking', 'Great customer service'],
   },
   {
@@ -330,6 +323,16 @@ export const REVIEWS = [
   {
     name: "Dr Navin Sakthi's Homeo",
     text: "I highly recommend Dr. Thaj Homoeo Clinic in Minjur. Dr. Mohammed Thajudeen is an exceptional and highly experienced homeopathic doctor who listens to patients with great patience and understanding.The clinic provides highly effective, safe, and affordable treatments without any side effects. I noticed an excellent recovery from chronic health issues within a few weeks of starting the treatment. The clinic premises are clean, well-maintained, and follow excellent hygienic standards. If you are looking for permanent, non-surgical solutions for long-standing illnesses, this is definitely the best clinic in Minjur!",
+    tags: ['Good facilities', 'Easy booking', 'Great customer service'],
+  },
+  {
+    name: 'Dr Navin Raj',
+    text: 'My experience at Dr. Thaj Homoeo Clinic was exceptional. The staff was highly attentive, making me feel cared for. Plus, the pricing was reasonable and the booking process was incredibly easy.',
+    tags: ['Highly attentive', 'Sterilised equipment', 'Easy booking'],
+  },
+  {
+    name: 'Dr Harini Ayyadurai',
+    text: 'I recently visited for a follow-up appointment in the Pediatrics and OB/GYN departments, and I couldn’t be more impressed. Booking was seamless, and the customer service was outstanding.',
     tags: ['Good facilities', 'Easy booking', 'Great customer service'],
   },
 ];

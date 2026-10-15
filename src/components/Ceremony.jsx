@@ -6,12 +6,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
    Clicking an image opens a larger view: Esc closes, ← → move, swipe on touch, focus returns to the image.
 
    Images live in  public/assets/ceremony/ceremony1.webp … ceremony9.webp
-   To change the number of photos, edit COUNT. To change the wording, edit EYEBROW / TITLE / INTRO. */
+   To change the number of photos, edit COUNT. To change the wording, edit EYEBROW / TITLE / INTRO.
+   The opening-date line under the intro comes from OPENED_ISO (machine-readable date) / OPENED_LABEL (what is shown). */
 
 const COUNT = 9;
 const EYEBROW = 'Ceremony day';
 const TITLE = 'On the day of the ceremony';
 const INTRO = 'A look back at the day, with family, friends and well-wishers. Use the arrows to browse.';
+
+const OPENED_ISO = '2025-11-02';
+const OPENED_LABEL = '2 November 2025';
 
 const PHOTOS = Array.from({ length: COUNT }, (_, i) => ({
   src: `/assets/ceremony/ceremony${i + 1}.webp`,
@@ -111,6 +115,14 @@ export default function Ceremony() {
             <p className="eyebrow eyebrow-light">{EYEBROW}</p>
             <h2 id="cm-title" className="mb-2 font-display text-[clamp(28px,3.4vw,44px)] font-normal leading-[1.1] text-p9">{TITLE}</h2>
             <p className="text-[15px] leading-[1.7] text-p7">{INTRO}</p>
+            <p className="mt-4 inline-flex items-center gap-2.5 rounded-full border border-line bg-paper py-1.5 pl-1.5 pr-4 text-[13.5px] text-p7 shadow-[0_8px_20px_-14px_rgba(33,37,41,.4)]">
+              <span aria-hidden="true" className="grid h-8 w-8 flex-none place-items-center rounded-full bg-accent-light text-accent">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3.5" y="5" width="17" height="15" rx="3" /><path d="M3.5 10h17M8 3v4M16 3v4" />
+                </svg>
+              </span>
+              <span>Clinic opened on <time dateTime={OPENED_ISO} className="font-semibold text-p9">{OPENED_LABEL}</time></span>
+            </p>
           </div>
           <div className="flex flex-none gap-2.5">
             <Arrow dir={-1} disabled={edge.start} onClick={() => step(-1)} />

@@ -9,7 +9,7 @@ const CYCLE = 6;   // seconds each category stays on screen before the section m
 /* Desktop / tablet sizes. Written with min-width variants so they never apply on phones,
    where the compact bento below takes over. */
 const SIZE_CLASS = {
-  xl: 'min-[640px]:col-span-2 min-[1024px]:row-span-2',
+  xl: 'min-[640px]:col-span-2 min-[1100px]:row-span-2',
   wide: 'min-[640px]:col-span-2',
   '': '',
 };
@@ -26,14 +26,14 @@ const MOBILE_SPAN = {
 };
 const MOBILE_ROWS = { 4: 'max-sm:grid-rows-3', 3: 'max-sm:grid-rows-2', 2: 'max-sm:grid-rows-2' };
 
-function Tile({ t, size, mobileSpan, mobileBig, index, live }) {
+function Tile({ t, size, mobileSpan, mobileBig, index, live, onOpen }) {
   const big = size === 'xl' || size === 'wide';
   const reveal = big ? 'max-h-24 opacity-100' : 'max-h-0 opacity-0 group-hover:max-h-24 group-hover:opacity-100 group-focus-visible:max-h-24 group-focus-visible:opacity-100';
   return (
-    <a
-      href="#booking"
+    <button
+      type="button" onClick={(e) => onOpen(t, e.currentTarget)} aria-haspopup="true"
       style={{ animationDelay: `${index * 70}ms` }}
-      className={`bento-tile group relative isolate flex min-w-0 flex-col justify-end overflow-hidden rounded-3xl bg-p7 p-[22px] text-white no-underline
+      className={`bento-tile group relative isolate flex min-w-0 flex-col justify-end overflow-hidden cursor-pointer rounded-3xl border-0 bg-p7 p-[22px] text-left font-body text-white no-underline
                   focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-accent-light
                   max-sm:rounded-2xl max-sm:p-2.5
                   ${SIZE_CLASS[size]} ${mobileSpan} ${live ? 'animate-bento-in motion-reduce:animate-none' : 'opacity-0'}`}
@@ -55,23 +55,25 @@ function Tile({ t, size, mobileSpan, mobileBig, index, live }) {
         &rarr;
       </span>
       <div className="relative">
-        <h3
-          className={`font-display font-normal text-white max-sm:leading-[1.15]
+        <span
+          className={`block font-display font-normal text-white max-sm:leading-[1.15]
                       ${size === 'xl' ? 'text-[clamp(28px,2.8vw,40px)] leading-[1.1]' : 'text-[clamp(18px,1.6vw,22px)] leading-[1.2]'}
                       ${mobileBig ? 'max-sm:text-[clamp(17px,5vw,21px)]' : 'max-sm:text-[clamp(13px,3.7vw,15px)]'}`}
         >
           {t.title}
-        </h3>
+        </span>
         {/* descriptions are hidden on phones to keep the tiles compact */}
         {t.sub && (
-          <p className={`mt-2 overflow-hidden text-[13px] leading-normal text-white/[.84] [transition:max-height_.45s_ease,opacity_.35s_ease] max-sm:hidden [@media(hover:none)]:max-h-24 [@media(hover:none)]:opacity-100 ${reveal}`}>
+          <span className={`mt-2 block overflow-hidden text-[13px] leading-normal text-white/[.84] [transition:max-height_.45s_ease,opacity_.35s_ease] max-sm:hidden [@media(hover:none)]:max-h-24 [@media(hover:none)]:opacity-100 ${reveal}`}>
             {t.sub}
-          </p>
+          </span>
         )}
       </div>
-    </a>
+    </button>
   );
 }
+
+const itemsOf = (t) => t.items || (t.sub ? t.sub.split(', ') : []);
 
 /* The condition chips used by both the hover card and the "All conditions" panel */
 function ConditionChips({ items }) {
@@ -106,6 +108,9 @@ export default function Treatments() {
   const closeRef = useRef(null);                     // close button inside the conditions panel
   const tipTimer = useRef(null);
   const [tip, setTip] = useState(null);              // id of the category whose hover panel is open (mouse / keyboard focus)
+  const [detail, setDetail] = useState(null);       // the tile whose conditions are open in the panel (null = none)
+  const detailOpener = useRef(null);                 // the tile button to give focus back to
+  const detailClose = useRef(null);
   const [listOpen, setListOpen] = useState(false);   // the full "All conditions" panel over the tiles (touch + keyboard + screen readers)
 
   const len = TREATMENT_CATEGORIES.length;
@@ -117,7 +122,7 @@ export default function Treatments() {
 
   useEffect(() => { if (inView) setLive(true); }, [inView]);
   useEffect(() => { if (panelRef.current) panelRef.current.scrollLeft = 0; }, [cat]);
-  useEffect(() => { setListOpen(false); setTip(null); }, [cat]);
+  useEffect(() => { setListOpen(false); setDetail(null); setTip(null); }, [cat]);
 
   /* hover panel: a short delay on enter so sweeping the mouse across the row doesn't flicker */
   const showTip = (id, delay = 0) => { clearTimeout(tipTimer.current); tipTimer.current = setTimeout(() => setTip(id), delay); };
@@ -132,6 +137,17 @@ export default function Treatments() {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [listOpen]);
+
+  /* tile panel: focus moves in when it opens, Escape closes it and returns focus to the tile */
+  const closeDetail = () => { setDetail(null); detailOpener.current?.focus(); };
+  const openDetail = (tile, el) => { detailOpener.current = el; setListOpen(false); setDetail(tile); };
+  useEffect(() => {
+    if (!detail) return;
+    detailClose.current?.focus();
+    const onKey = (e) => { if (e.key === 'Escape') { setDetail(null); detailOpener.current?.focus(); } };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [detail]);
 
   /* ── scroll cues for the category row ── */
   const updateEdge = () => {
@@ -178,9 +194,9 @@ export default function Treatments() {
   /* the progress bar on the active card is the auto-advance timer: when it fills, move to the next category.
      It holds while the cards/grid are hovered or while the section is off-screen. */
   useEffect(() => {
-    holdRef.current = paused || listOpen || !inView;
+    holdRef.current = paused || listOpen || !!detail || !inView;
     tweenRef.current?.paused(holdRef.current);
-  }, [paused, listOpen, inView]);
+  }, [paused, listOpen, detail, inView]);
 
   useEffect(() => {
     const bars = barRefs.current;
@@ -336,7 +352,7 @@ export default function Treatments() {
                     max-sm:mb-3.5 max-sm:h-[clamp(380px,60svh,520px)] max-sm:flex-none max-sm:gap-2 max-sm:px-4
                     ${MOBILE_ROWS[visible.length] || ''}`}
       >
-        {listOpen && hasList && (
+        {listOpen && hasList && !detail && (
           <div
             id="allConditions" role="region" aria-label={`All conditions: ${activeCat.label}`}
             className="absolute inset-0 z-20 flex flex-col overflow-hidden rounded-3xl bg-[radial-gradient(120%_90%_at_50%_0%,#254033_0%,#14211a_70%)] p-7 max-sm:rounded-2xl max-sm:p-4"
@@ -363,11 +379,42 @@ export default function Treatments() {
             </p>
           </div>
         )}
+        {detail && (
+          <div
+            role="region" aria-label={`Treatments: ${detail.title}`}
+            className="absolute inset-0 z-20 flex flex-col overflow-hidden rounded-3xl bg-[radial-gradient(120%_90%_at_50%_0%,#254033_0%,#14211a_70%)] p-7 max-sm:rounded-2xl max-sm:p-4"
+          >
+            <div className="mb-4 flex flex-none items-start justify-between gap-3">
+              <div>
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-[.1em] text-accent-light">Treatments under</p>
+                <h3 className="font-display text-[clamp(20px,2.4vw,30px)] font-normal leading-[1.15] text-white">{detail.title}</h3>
+              </div>
+              <button
+                ref={detailClose} type="button" onClick={closeDetail} aria-label="Close"
+                className="grid h-9 w-9 flex-none cursor-pointer place-items-center rounded-full border border-white/25 bg-white/10 text-white transition-colors duration-200 hover:bg-white hover:text-p9
+                           focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-light"
+              >
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              <ConditionChips items={itemsOf(detail)} />
+              <p className="mt-4 text-[13px] leading-snug text-white/75">…and more. Ask us about any health concern.</p>
+            </div>
+            <a
+              href="#booking" onClick={() => setDetail(null)}
+              className="mt-4 inline-flex flex-none items-center gap-2 self-start rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-p9 no-underline transition-colors duration-200 hover:bg-accent-light
+                         focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-light"
+            >
+              Book a consultation →
+            </a>
+          </div>
+        )}
         {visible.map((t, i) => {
           const span = mobileSpans[i] ?? '';
           return (
             <Tile
-              key={t.title} t={t} size={recipe[i] ?? ''} index={i} live={live}
+              key={t.title} t={t} size={recipe[i] ?? ''} index={i} live={live} onOpen={openDetail}
               mobileSpan={span}
               mobileBig={span.includes('row-span-2') || visible.length === 2}
             />
@@ -384,7 +431,7 @@ export default function Treatments() {
         </button>
         {hasList && (
           <button
-            ref={toggleRef} type="button" onClick={() => setListOpen((o) => !o)}
+            ref={toggleRef} type="button" onClick={() => { setDetail(null); setListOpen((o) => !o); }}
             aria-expanded={listOpen} aria-controls={listOpen ? 'allConditions' : undefined}
             className="cursor-pointer rounded-full border-[1.5px] border-p9 bg-p9 px-5 py-2 font-body text-sm font-medium text-p1 transition-colors duration-200 hover:bg-p8 max-sm:px-4 max-sm:text-[13px]"
           >

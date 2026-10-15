@@ -116,7 +116,12 @@ export default function DoctorCard() {
           <p className="dc-bio">
             Dr. Thaj Homoeo Clinic offers personalised homoeopathic care for thyroid, respiratory, digestive, joint, women’s and children’s health, treating the person as a whole.
           </p>
-          <a ref={cta} href="#booking" className="dc-cta">+ Request Appointment</a>
+          <a ref={cta} href="#booking" className="dc-cta">
+            Request Appointment
+            <span className="dc-cta-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+            </span>
+          </a>
         </div>
 
         <div className="dc-visual">
@@ -133,9 +138,20 @@ export default function DoctorCard() {
               </div>
             </div>
           </div>
+          {/* education plaque: icon tile + label + the two degrees stacked */}
           <div className="dc-badge">
-            <span className="dc-badge-dot pause-offscreen" />
-            B.H.M.S · M.Sc Psychology
+            <span className="dc-badge-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 9.5 12 5l10 4.5-10 4.5L2 9.5z" />
+                <path d="M6 11.7v4.3c0 1.2 2.7 2.7 6 2.7s6-1.5 6-2.7v-4.3" />
+                <path d="M22 9.5v5" />
+              </svg>
+            </span>
+            <span className="dc-badge-text">
+              <span className="dc-badge-label">Education</span>
+              <strong className="dc-badge-deg">B.H.M.S</strong>
+              <span className="dc-badge-deg dc-badge-deg2">M.Sc Psychology</span>
+            </span>
           </div>
         </div>
       </div>

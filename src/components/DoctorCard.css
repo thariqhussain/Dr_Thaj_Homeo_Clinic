@@ -13,7 +13,7 @@
 }
 @media (min-width: 1100px) { .dc { margin-right: 0; margin-left: auto; } }
 /* tablets (stacked hero): give the portrait's head room so it doesn't touch the buttons above */
-@media (min-width: 640px) and (max-width: 1099px) { .dc { margin-top: 56px; } }
+@media (min-width: 640px) and (max-width: 1099px) { .dc { margin-top: 110px; } }
 
 .dc-grid {
   display: grid;
@@ -67,17 +67,24 @@
 }
 .dc-cut-inner.is-alt > .dc-photo { opacity: 0; filter: blur(14px); transform: scale(1.05); }
 .dc-cut-inner.is-alt > .dc-photo-alt { opacity: 1; filter: blur(0); transform: scale(1); }
+/* ── education plaque (replaces the old pill with a dot) ── */
 .dc-badge {
   position: absolute; right: -2.5cqw; bottom: calc(var(--dc-extend) + 5cqw); z-index: 2;
-  display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
-  padding: 8px 15px; border-radius: 999px; border: 1px solid #dde4da; background: #fbfcfa;
-  font-size: 12px; font-weight: 500; letter-spacing: .02em; color: #212529;
-  box-shadow: 0 10px 24px -10px rgba(33,37,41,.35);
+  display: flex; align-items: center; gap: 10px; white-space: nowrap;
+  padding: 9px 16px 9px 9px; border-radius: 16px; border: 1px solid #dde4da; background: #fbfcfa;
+  box-shadow: 0 14px 30px -12px rgba(33,37,41,.38), inset 0 1px 0 rgba(255,255,255,.9);
 }
-.dc-badge-dot {
-  width: 8px; height: 8px; border-radius: 50%; background: #5a8a6a;
-  box-shadow: 0 0 0 0 rgba(90,138,106,.5); animation: dc-pulse 2s infinite;
+.dc-badge-icon {
+  display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 11px;
+  background: #dff0e6; color: #5a8a6a;
 }
+.dc-badge-icon svg { width: 22px; height: 22px; }
+.dc-badge-text { display: flex; flex-direction: column; line-height: 1.25; text-align: left; }
+.dc-badge-label {
+  margin-bottom: 2px; font-size: 9.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #6c757d;
+}
+.dc-badge-deg { font-size: 13.5px; font-weight: 600; letter-spacing: .01em; color: #212529; }
+.dc-badge-deg2 { font-size: 12px; font-weight: 500; letter-spacing: 0; color: #495057; }
 
 /* ── text: sits to the left of the photo, right-aligned; the name plate overlaps the photo edge ── */
 .dc-text {
@@ -111,18 +118,32 @@
 .dc-ellipsis { display: none; }
 .dc-more-btn { display: none; }
 
+/* "Request Appointment": a solid pill button (dark, arrow in a circle, turns green on hover) */
+.dc-cta {
+  display: inline-flex; align-items: center; gap: 12px; white-space: nowrap;
+  padding: 7px 7px 7px 24px; border-radius: 999px; border: 0; cursor: pointer; text-decoration: none;
+  background: #212529; color: #f8f9fa;
+  font-size: clamp(13px, 2.5cqw, 14.5px); font-weight: 600; letter-spacing: .01em;
+  box-shadow: 0 16px 30px -14px rgba(33,37,41,.6), inset 0 1px 0 rgba(255,255,255,.14);
+  transition: background .3s ease, box-shadow .3s ease;
+}
+.dc-cta-icon {
+  display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(255,255,255,.14); color: #fff;
+  transition: background .3s ease, color .3s ease, transform .4s cubic-bezier(.34,1.4,.64,1);
+}
+.dc-cta:hover { background: #5a8a6a; box-shadow: 0 18px 34px -14px rgba(90,138,106,.7), inset 0 1px 0 rgba(255,255,255,.2); }
+.dc-cta:hover .dc-cta-icon { background: #fff; color: #212529; transform: rotate(-45deg); }
+.dc-cta:focus-visible { outline: 3px solid #5a8a6a; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .dc-cta, .dc-cta-icon { transition: none; } }
+
 .dc .is-paused { animation-play-state: paused !important; }
 
 @property --dc-angle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
 @keyframes dc-angle { to { --dc-angle: 360deg; } }
 @keyframes dc-spin { to { transform: rotate(360deg); } }
-@keyframes dc-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(90,138,106,.5); }
-  70% { box-shadow: 0 0 0 8px rgba(90,138,106,0); }
-  100% { box-shadow: 0 0 0 0 rgba(90,138,106,0); }
-}
 @media (prefers-reduced-motion: reduce) {
-  .dc-ring, .dc-plate, .dc-badge-dot { animation: none; }
+  .dc-ring, .dc-plate { animation: none; }
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -146,7 +167,12 @@
   .dc-arch-clip { height: auto; min-height: 0; aspect-ratio: 1 / 1.28; }
   .dc-cut { --dc-photo-w: 115%; }
   .dc-ring { left: -3cqw; top: -3cqw; width: calc(100% + 6cqw); }
-  .dc-badge { right: 0; bottom: 3cqw; padding: 7px 12px; font-size: 11px; }
+  .dc-badge { right: 0; bottom: 3cqw; gap: 7px; padding: 6px 10px 6px 6px; border-radius: 13px; }
+  .dc-badge-icon { width: 28px; height: 28px; border-radius: 9px; }
+  .dc-badge-icon svg { width: 17px; height: 17px; }
+  .dc-badge-label { font-size: 8.5px; }
+  .dc-badge-deg { font-size: 11.5px; }
+  .dc-badge-deg2 { font-size: 10.5px; }
 
   /* text column: centred against the photo, and a touch tighter */
   .dc-text { align-self: center; }

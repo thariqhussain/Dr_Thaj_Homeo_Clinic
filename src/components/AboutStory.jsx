@@ -7,17 +7,25 @@ import { prefersReducedMotion } from '../lib/utils';
    Left: one arch-shaped photo stays pinned (CSS `position: sticky`, no GSAP pin).
    Right: heading + a stack of cards. The card crossing 60% of the viewport
    becomes `active`; that single index drives the photo, counter, caption and
-   progress bars. Mobile: the photo becomes a short strip pinned under the navbar.
+   progress bars. Mobile / tablet: the photo stays pinned under the navbar at the photo's OWN
+   proportions (read from the first image), so about 90% of the picture is visible (SHOWN below).
+   The frame's height is capped to a share of the screen so the cards stay visible.
 
    NOTE: no `overflow-hidden` on <section> — it would break `position: sticky`.
    `overflow-x-clip` hides the orbs without creating a scroll container. */
 
 const N = ABOUT_STORY.length;
+const SHOWN = 0.9;   // share of the photo's height that stays visible on mobile / tablet (1 = whole photo, lower = tighter crop)
 const pad = (i) => String(i + 1).padStart(2, '0');
 
 export default function AboutStory() {
   const section = useRef(null);
   const [active, setActive] = useState(0);
+  const [ratio, setRatio] = useState(4 / 3);   // width / height of the photos, measured from the first one (used below lg only)
+  const measure = (img) => {
+    if (img?.naturalWidth && img?.naturalHeight) setRatio(Math.min(1.8, Math.max(0.55, img.naturalWidth / img.naturalHeight)));
+  };
+  useEffect(() => { measure(section.current?.querySelector('img')); }, []);   // first photo may already be loaded
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -60,13 +68,20 @@ export default function AboutStory() {
       <div className="relative z-[1] mx-auto flex max-w-[1240px] flex-col gap-5 lg:grid lg:grid-cols-[1.1fr_.9fr] lg:items-start lg:gap-14">
         {/* LEFT — pinned photo (on mobile this column dissolves so the strip can stick) */}
         <div className="max-lg:contents lg:relative lg:self-stretch">
-          <div className="sticky top-[84px] z-10 h-[210px] max-lg:order-2 max-sm:top-[72px] max-sm:h-[180px] lg:top-28 lg:h-[min(760px,calc(100svh-8rem))]">
-            <div className="relative mx-auto h-full w-full lg:max-w-[640px]">
+          <div className="sticky top-[84px] z-10 max-lg:order-2 max-sm:top-[72px] lg:top-28 lg:h-[min(760px,calc(100svh-8rem))]">
+            {/* below lg: the frame's height comes from its width (via --ar) and the width is limited so the frame is never taller
+                than 48% of the screen (44% on phones). lg and up: unchanged, it fills the sticky box. */}
+            <div
+              style={{ '--ar': (ratio / SHOWN).toFixed(3) }}
+              className="relative mx-auto h-full w-full lg:max-w-[640px]
+                         max-lg:[aspect-ratio:var(--ar)] max-lg:w-[min(100%,calc(min(48svh,460px)*var(--ar)))]
+                         max-sm:w-[min(100%,calc(min(44svh,400px)*var(--ar)))]"
+            >
               <div className="relative h-full w-full overflow-hidden rounded-[18px] bg-accent-light shadow-[0_30px_60px_-24px_rgba(33,37,41,.35),0_0_0_6px_rgba(255,255,255,.7)] lg:rounded-b-[24px] lg:rounded-t-[320px]">
                 {ABOUT_STORY.map((s, i) => (
                   <img
                     key={s.title} src={s.img} alt={i === active ? s.caption : ''} aria-hidden={i !== active}
-                    loading={i === 0 ? 'eager' : 'lazy'} decoding="async"
+                    loading={i === 0 ? 'eager' : 'lazy'} decoding="async" onLoad={i === 0 ? (e) => measure(e.currentTarget) : undefined}
                     className={`absolute inset-0 h-full w-full object-cover [transition:opacity_.8s_ease,transform_1.2s_cubic-bezier(.22,.61,.36,1)] motion-reduce:transition-none
                                 ${i === active ? 'scale-100 opacity-100' : 'scale-110 opacity-0'}`}
                   />

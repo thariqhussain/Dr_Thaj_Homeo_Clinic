@@ -18,7 +18,7 @@ export default function Hero() {
   return (
     <section
       id="home"
-      className="relative flex min-h-svh flex-col overflow-hidden px-12 pb-12 pt-[120px]
+      className="relative flex min-h-svh flex-col overflow-hidden sm:max-lg:min-h-0 px-12 pb-12 pt-[120px]
                  max-lg:px-6 max-lg:pb-8 max-lg:pt-[104px]
                  max-sm:px-4 max-sm:pb-5 max-sm:pt-[84px]
                  max-[375px]:px-3 max-[375px]:pb-4 max-[375px]:pt-[76px]

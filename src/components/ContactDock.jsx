@@ -1,8 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PHONES, WA_NUMBER } from '../data/content';
 import { useIntroReveal } from '../hooks/useIntroReveal';
 
-/* Bottom-left quick-contact bar: the same glass pill as the top navbar (it reuses the .site-nav / .nav-bar styles
+/* Bottom-right quick-contact bar: the same glass pill as the top navbar (it reuses the .site-nav / .nav-bar styles
    from index.css, including the wet-glass highlight and the cursor-following glare), holding the WhatsApp and
    phone icons. WhatsApp opens a chat with a ready message; the phone icon dials the first number in PHONES. */
 
@@ -19,6 +19,25 @@ export default function ContactDock() {
   const barRef = useRef(null);
   const glareRef = useRef(null);
   useIntroReveal(wrap, { y: 24, delay: 0.2, duration: 0.7 });   // rises in once the hero sequence has played
+
+  /* The booking form now fills the screen, so the dock would sit on top of its buttons. While the booking section is
+     on screen the dock slides away (the clinic details with the phone number are right there); it comes back after. */
+  const [hide, setHide] = useState(false);
+  useEffect(() => {
+    let raf = 0;
+    const check = () => {
+      raf = 0;
+      const el = document.getElementById('booking');
+      if (!el) return setHide(false);
+      const r = el.getBoundingClientRect();
+      setHide(r.top < window.innerHeight - 90 && r.bottom > 90);
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(check); };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    check();
+    return () => { window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onScroll); cancelAnimationFrame(raf); };
+  }, []);
 
   /* cursor-following glare across the glass (same as the top navbar) */
   useEffect(() => {
@@ -46,7 +65,9 @@ export default function ContactDock() {
   return (
     <nav
       ref={wrap} data-theme="light" aria-label="Quick contact"
-      className="site-nav fixed bottom-[max(16px,env(safe-area-inset-bottom))] left-4 z-[90] max-lg:left-auto max-lg:right-4 max-sm:right-3"
+      className={`site-nav fixed bottom-[max(16px,env(safe-area-inset-bottom))] right-4 z-[90] max-sm:right-3
+                  [transition:transform_.45s_cubic-bezier(.22,.61,.36,1),opacity_.3s_ease] motion-reduce:transition-none
+                  ${hide ? 'pointer-events-none translate-y-[140%] opacity-0' : ''}`}
     >
       <div
         ref={barRef}

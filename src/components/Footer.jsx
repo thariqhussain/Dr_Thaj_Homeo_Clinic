@@ -1,8 +1,7 @@
 import { useLayoutEffect, useRef } from 'react';
 import { gsap } from '../lib/gsap';
-import { EMAIL, MAPS_URL, PHARMACY, PHONES } from '../data/content';
+import { CLINIC_PHONE, PHARMACY } from '../data/content';
 import { useMagnetic } from '../hooks/useMagnetic';
-import OpenStatus from './OpenStatus';
 import SocialLinks from './SocialLinks';
 import { prefersReducedMotion } from '../lib/utils';
 
@@ -47,9 +46,9 @@ export default function Footer() {
       <span aria-hidden="true" className="orb pause-offscreen -bottom-[120px] -left-20 h-[340px] w-[340px] animate-ft-float-rev bg-accent-light/[.12] motion-reduce:animate-none" />
 
       {/* columns */}
-      <div className="ft-grid relative z-[1] mx-auto grid w-full max-w-[1120px] grid-cols-[1.4fr_1fr_1fr_1.2fr] gap-12 max-[900px]:grid-cols-3 max-[900px]:gap-x-7 max-[900px]:gap-y-8 max-[640px]:grid-cols-2">
+      <div className="ft-grid relative z-[1] mx-auto grid w-full max-w-[1120px] grid-cols-[1.4fr_.9fr_1.3fr_1.1fr] gap-12 max-[900px]:grid-cols-3 max-[900px]:gap-x-7 max-[900px]:gap-y-8 max-[640px]:grid-cols-2">
         <div className="max-[900px]:col-span-full">
-          <img src="/assets/doctors/clinic_logo.webp" alt="Dr. Thaj Homoeo Clinic" width="140" height="80" loading="lazy" decoding="async" className="mb-4 h-14 w-auto" />
+          <img src="/assets/doctors/clinic_logo.webp" alt="Dr. Thaj Homoeo Clinic" width="168" height="96" loading="lazy" decoding="async" className="mb-5 h-24 w-auto max-[900px]:h-20 max-[520px]:h-[72px]" />
           <p className="max-w-[300px] text-sm leading-[1.7] text-p5 max-[900px]:max-w-[420px]">
             Personalised homoeopathic care in Minjur, Chennai — treat the person as whole.
           </p>
@@ -74,29 +73,34 @@ export default function Footer() {
 
         <nav aria-label="Treatments">
           <h4 className={colHead}>Treatments</h4>
-          <ul className="flex flex-col gap-[9px] text-[15px]">
-            {['Asthma & respiratory', 'Skin disorders', 'Migraine', 'Joint pain', 'Thyroid care'].map((l) => (
-              <li key={l}><a href="#treatments" className="ft-link">{l}</a></li>
-            ))}
-          </ul>
+          <p className="max-w-[300px] text-[15px] leading-[1.7] text-p5">
+            We provide personalised homoeopathic care for a wide range of acute and chronic health concerns. Please visit our Treatments section to see the conditions we commonly care for.
+          </p>
+          <a href="#treatments" className="ft-link mt-4 text-[15px] font-medium text-accent-light">Explore treatments &rarr;</a>
         </nav>
 
         <div className="max-[640px]:col-span-full">
-          <h4 className={colHead}>Visit &amp; contact</h4>
-          <ul className="flex flex-col gap-[9px] text-[15px]">
-            {PHONES.map((p) => <li key={p.tel}><a href={`tel:${p.tel}`} className="ft-link">{p.display}</a></li>)}
-            {EMAIL && <li><a href={`mailto:${EMAIL}`} className="ft-link">{EMAIL}</a></li>}
-            <li><a href="#booking" className="ft-link">Book appointment</a></li>
-            <li><a href="#contact" className="ft-link">Clinic details</a></li>
-            <li><a href={MAPS_URL} target="_blank" rel="noopener" className="ft-link">Get directions</a></li>
-            {CONSULT && (
-              <li className="text-[13.5px] leading-[1.6] text-p5">
-                Consultation {CONSULT.days}
-                {CONSULT.time.split(', ').map((t) => <span key={t} className="block">{t}</span>)}
-              </li>
-            )}
-            <li><OpenStatus which="consultation" /></li>
-          </ul>
+          <h4 className={colHead}>Contact &amp; hours</h4>
+          <a
+            href={`tel:${CLINIC_PHONE.tel}`} aria-label={`Contact us on ${CLINIC_PHONE.display}`}
+            className="inline-flex items-center gap-3.5 rounded-full border border-white/30 bg-white/[.08] py-[5px] pl-[22px] pr-[5px] text-sm font-semibold text-white no-underline
+                       [transition:background_.3s,color_.3s,border-color_.3s] hover:border-accent-light hover:bg-accent-light hover:text-p9
+                       focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-light"
+          >
+            <span>Contact us</span>
+            <span aria-hidden="true" className="grid h-9 w-9 place-items-center rounded-full bg-accent-light text-p9">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.15 12 19.79 19.79 0 0 1 1.08 3.4 2 2 0 0 1 3.05 1.22h3a2 2 0 0 1 2 1.72c.127.96.36 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 9.07a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.34 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
+              </svg>
+            </span>
+          </a>
+          {CONSULT && (
+            <div className="mt-6 text-[15px] leading-[1.7]">
+              <p className="mb-1 text-[11px] font-semibold uppercase tracking-[.14em] text-p5">Consultation</p>
+              <p className="text-p3">{CONSULT.days}</p>
+              {CONSULT.time.split(', ').map((t) => <p key={t} className="text-p3">{t}</p>)}
+            </div>
+          )}
         </div>
       </div>
 

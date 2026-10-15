@@ -36,10 +36,10 @@ export default function FAQ() {
               Ask on WhatsApp
             </a>
             <a
-              href={`tel:${PHONES[0].tel}`}
+              href={`tel:${PHONES[0].tel}`} aria-label={`Call us on ${PHONES[0].display}`}
               className="rounded-full border-[1.5px] border-p9 px-5 py-2 text-sm font-medium text-p9 no-underline transition-colors duration-200 hover:bg-p9 hover:text-p1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
-              Call {PHONES[0].display}
+              Call us
             </a>
           </div>
         </div>
