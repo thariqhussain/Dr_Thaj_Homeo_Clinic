@@ -48,7 +48,7 @@ export default function Footer() {
       {/* columns */}
       <div className="ft-grid relative z-[1] mx-auto grid w-full max-w-[1120px] grid-cols-[1.4fr_.9fr_1.3fr_1.1fr] gap-12 max-[900px]:grid-cols-3 max-[900px]:gap-x-7 max-[900px]:gap-y-8 max-[640px]:grid-cols-2">
         <div className="max-[900px]:col-span-full">
-          <img src="/assets/doctors/clinic_logo_og_nav.webp" alt="Dr. Thaj Homoeo Clinic" width="618" height="404" loading="lazy" decoding="async" className="-mx-10 -my-8 mb-0 h-[200px] w-auto max-[900px]:h-[170px] max-[520px]:h-[150px]" />
+          <img src="/assets/doctors/clinic_logo_og_nav_crop.webp" alt="Dr. Thaj Homoeo Clinic" width="271" height="234" loading="lazy" decoding="async" className="mb-5 h-[110px] w-auto max-[900px]:h-24 max-[520px]:h-20" />
           <p className="max-w-[300px] text-sm leading-[1.7] text-p5 max-[900px]:max-w-[420px]">
             Personalised homoeopathic care in Minjur, Chennai — treat the person as whole.
           </p>
