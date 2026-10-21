@@ -213,8 +213,6 @@ export const CLINIC_PHOTOS = [
   { src: '/assets/hero-images/clinicImg10.webp', alt: 'Describe image 3' },
   { src: '/assets/hero-images/clinicImg17.webp', alt: 'Describe image 11' },
   { src: '/assets/hero-images/clinicImg3.webp', alt: 'Describe image 5' },
-  { src: '/assets/hero-images/clinicImg12.webp', alt: 'Describe image 6' },
-  { src: '/assets/hero-images/clinicImg13.webp', alt: 'Describe image 7' },
   { src: '/assets/hero-images/clinicImg14.webp', alt: 'Describe image 8' },
   { src: '/assets/hero-images/clinicImg15.webp', alt: 'Describe image 9' },
   { src: '/assets/hero-images/clinicImg16.webp', alt: 'Describe image 10' },

@@ -1,4 +1,4 @@
-/* Decorative layer for the hero: a faint scatter of clinic icons (pellets, leaves, drops…) plus two botanical line-art sprigs.
+/* Decorative layer for the hero: a faint scatter of medical icons (crosses, stethoscopes, caduceus, bottles, capsules) plus two botanical line-art sprigs.
    dotField.js draws the icons on a canvas; with a mouse (and no reduced-motion preference) they react to the cursor —
    see that file for the cost controls. The CSS dot grid is only a fallback until the canvas has drawn.
    The sprigs draw themselves once on load (CSS only) and then sit still; see .sprig-path in index.css. */
