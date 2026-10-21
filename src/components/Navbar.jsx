@@ -54,7 +54,7 @@ export default function Navbar() {
       /* park the twin exactly over the real badge, then shift it to the middle of the viewport */
       const r = logo.getBoundingClientRect();
       const toCenter = window.innerWidth / 2 - (r.left + r.width / 2);
-      gsap.set(twin, { left: r.left, top: r.top, width: r.width, height: r.height, x: toCenter, autoAlpha: 0, scale: 0.7 });
+      gsap.set(twin, { left: r.left, top: r.top, width: r.width, height: r.height, x: toCenter, autoAlpha: 0, scale: 0.7, transformOrigin: '50% 100%' });
 
       gsap.set(bar, { opacity: 0, scale: 0.94, filter: 'blur(12px)' });
       gsap.set(logo, { opacity: 0 });
@@ -65,8 +65,17 @@ export default function Navbar() {
       gsap.timeline({ delay: INTRO_DELAY })
         /* 1 — the badge pops in on its own, centred */
         .to(twin, { autoAlpha: 1, scale: 1, duration: 0.6, ease: 'back.out(1.6)' }, 0)
-        /* 2 — it glides to its place; the bar focus-pulls in behind it */
+        /* 2 — it is thrown along a low arc to its place (x eases in/out, y rises then falls), stretching with speed,
+               trailing a green glow, and squashing on landing; the bar focus-pulls in behind it */
         .to(twin, { x: 0, duration: 0.85, ease: 'power3.inOut' }, 0.8)
+        .to(twin, { y: -22, duration: 0.425, ease: 'power2.out' }, 0.8)
+        .to(twin, { y: 0, duration: 0.425, ease: 'power2.in' }, 1.225)
+        .to(twin, { scaleX: 1.12, scaleY: 0.94, duration: 0.3, ease: 'power2.out' }, 0.8)
+        .to(twin, { scaleX: 1, scaleY: 1, duration: 0.45, ease: 'power2.inOut' }, 1.1)
+        .to(twin, { boxShadow: '0 0 26px 6px rgba(146,201,62,.55), 0 8px 16px -8px rgba(20,12,10,.6)', duration: 0.3, ease: 'power1.out' }, 0.8)
+        .to(twin, { boxShadow: '0 0 0px 0px rgba(146,201,62,0), 0 8px 16px -8px rgba(20,12,10,.6)', duration: 0.4, ease: 'power1.in' }, 1.4)
+        .to(twin, { scaleX: 1.1, scaleY: 0.88, duration: 0.07, ease: 'power1.out' }, 1.65)
+        .to(twin, { scaleX: 1, scaleY: 1, duration: 0.2, ease: 'back.out(3)' }, 1.72)
         .to(bar, { opacity: 1, scale: 1, filter: 'blur(0px)', duration: 0.7, ease: 'power2.out' }, 0.85)
         /* 3 — one glare sweeps diagonally across the glass (the band is ~38% of the bar wide, so 340% clears it) */
         .to(shimmer, { opacity: 1, duration: 0.15, ease: 'none' }, 1.15)
@@ -74,8 +83,8 @@ export default function Navbar() {
         .to(shimmer, { opacity: 0, duration: 0.2, ease: 'none' }, 1.8)
         .add(() => introDone('nav'), 1.55)                                // bar is in → the doctor photo may start
         /* 4 — hand over to the real badge, then buttons fade down into place and link labels rise out of a mask */
-        .set(logo, { opacity: 1 }, 1.65)
-        .set(twin, { autoAlpha: 0 }, 1.65)
+        .set(logo, { opacity: 1 }, 1.92)
+        .set(twin, { autoAlpha: 0 }, 1.92)
         .to(items, { opacity: 1, y: 0, duration: 0.55, stagger: 0.08, ease: 'power3.out' }, 1.35)
         .to(labels, { yPercent: 0, duration: 0.6, stagger: 0.07, ease: 'power3.out' }, 1.45)
         .set(bar, { clearProps: 'filter,transform,opacity' });            // restore shadow + normal styling
