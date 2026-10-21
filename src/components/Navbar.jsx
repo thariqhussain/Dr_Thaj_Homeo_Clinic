@@ -22,6 +22,13 @@ const MoonIcon = () => (
   </svg>
 );
 
+/* the rounded dark badge around the logo — shared by the real logo link and its intro twin */
+const LOGO_PILL = `flex items-center justify-center rounded-full px-[22px] py-[3px] font-logo text-[26px] text-p9 no-underline
+  bg-[linear-gradient(to_top_right,#241b17_0%,#2f2623_50%,#6f696d_100%)]
+  shadow-[inset_0_1px_1px_rgba(255,255,255,.22),0_8px_16px_-8px_rgba(20,12,10,.6)]
+  max-sm:px-3.5 max-sm:py-0.5`;
+const LOGO_IMG = 'block h-[44px] w-auto max-sm:h-[38px] max-[375px]:h-[34px] max-[320px]:h-[30px]';
+
 export default function Navbar() {
   const [dark, setDark] = useState(false);
   const [pill, setPill] = useState({ left: 0, width: 0, visible: false });
@@ -30,33 +37,47 @@ export default function Navbar() {
   const barRef = useRef(null);
   const glareRef = useRef(null);
   const shimmerRef = useRef(null);
+  const logoRef = useRef(null);
+  const logoTwinRef = useRef(null);
 
-  /* Load / reload intro (glass shimmer sweep): the bar comes into focus (blur → sharp) while fading in,
-     one diagonal glare sweeps across it, then the logo, buttons and link labels rise in one after another.
-     The whole thing takes ~1.3s and tells the doctor photo to start at ~0.7s (see lib/intro.js). */
+  /* Load / reload intro: the rounded logo badge appears alone in the middle of the screen, then glides left to its
+     place while the glass bar comes into focus (blur → sharp) around it. One diagonal glare sweeps across the bar,
+     then the buttons and link labels rise in one after another. The doctor photo is told to start once the bar is in
+     (see lib/intro.js). The badge that travels is a twin of the real logo, swapped for it on arrival. */
   useLayoutEffect(() => {
-    const bar = barRef.current, shimmer = shimmerRef.current;
-    if (!bar || !shimmer || prefersReducedMotion()) return;
+    const bar = barRef.current, shimmer = shimmerRef.current, logo = logoRef.current, twin = logoTwinRef.current;
+    if (!bar || !shimmer || !logo || !twin || prefersReducedMotion()) return;
     const ctx = gsap.context(() => {
-      const items = bar.querySelectorAll('[data-nav-item]');
+      const items = bar.querySelectorAll('[data-nav-item]:not([data-nav-logo])');
       const labels = bar.querySelectorAll('.nav-link-label');
 
+      /* park the twin exactly over the real badge, then shift it to the middle of the viewport */
+      const r = logo.getBoundingClientRect();
+      const toCenter = window.innerWidth / 2 - (r.left + r.width / 2);
+      gsap.set(twin, { left: r.left, top: r.top, width: r.width, height: r.height, x: toCenter, autoAlpha: 0, scale: 0.7 });
+
       gsap.set(bar, { opacity: 0, scale: 0.94, filter: 'blur(12px)' });
+      gsap.set(logo, { opacity: 0 });
       gsap.set(items, { opacity: 0, y: -8 });
       gsap.set(labels, { yPercent: 115 });
       gsap.set(shimmer, { xPercent: -130, skewX: -20, opacity: 0 });
 
       gsap.timeline({ delay: INTRO_DELAY })
-        /* 1 — focus pull: soft + small → sharp + full size */
-        .to(bar, { opacity: 1, scale: 1, filter: 'blur(0px)', duration: 0.7, ease: 'power2.out' }, 0)
-        /* 2 — one glare sweeps diagonally across the glass (the band is ~38% of the bar wide, so 340% clears it) */
-        .to(shimmer, { opacity: 1, duration: 0.15, ease: 'none' }, 0.3)
-        .to(shimmer, { xPercent: 340, duration: 0.85, ease: 'power2.inOut' }, 0.3)
-        .to(shimmer, { opacity: 0, duration: 0.2, ease: 'none' }, 0.95)
-        .add(() => introDone('nav'), 0.7)                                 // bar is in → the doctor photo may start
-        /* 3 — content: logo + buttons fade down into place, link labels rise out of a mask one by one */
-        .to(items, { opacity: 1, y: 0, duration: 0.55, stagger: 0.08, ease: 'power3.out' }, 0.45)
-        .to(labels, { yPercent: 0, duration: 0.6, stagger: 0.07, ease: 'power3.out' }, 0.55)
+        /* 1 — the badge pops in on its own, centred */
+        .to(twin, { autoAlpha: 1, scale: 1, duration: 0.6, ease: 'back.out(1.6)' }, 0)
+        /* 2 — it glides to its place; the bar focus-pulls in behind it */
+        .to(twin, { x: 0, duration: 0.85, ease: 'power3.inOut' }, 0.8)
+        .to(bar, { opacity: 1, scale: 1, filter: 'blur(0px)', duration: 0.7, ease: 'power2.out' }, 0.85)
+        /* 3 — one glare sweeps diagonally across the glass (the band is ~38% of the bar wide, so 340% clears it) */
+        .to(shimmer, { opacity: 1, duration: 0.15, ease: 'none' }, 1.15)
+        .to(shimmer, { xPercent: 340, duration: 0.85, ease: 'power2.inOut' }, 1.15)
+        .to(shimmer, { opacity: 0, duration: 0.2, ease: 'none' }, 1.8)
+        .add(() => introDone('nav'), 1.55)                                // bar is in → the doctor photo may start
+        /* 4 — hand over to the real badge, then buttons fade down into place and link labels rise out of a mask */
+        .set(logo, { opacity: 1 }, 1.65)
+        .set(twin, { autoAlpha: 0 }, 1.65)
+        .to(items, { opacity: 1, y: 0, duration: 0.55, stagger: 0.08, ease: 'power3.out' }, 1.35)
+        .to(labels, { yPercent: 0, duration: 0.6, stagger: 0.07, ease: 'power3.out' }, 1.45)
         .set(bar, { clearProps: 'filter,transform,opacity' });            // restore shadow + normal styling
     }, bar);
     return () => ctx.revert();
@@ -125,13 +146,10 @@ export default function Navbar() {
           style={{ background: 'linear-gradient(100deg, transparent 0%, rgba(255,255,255,.75) 50%, transparent 100%)' }}
         />
 
-        <a href="#" data-nav-item aria-label="Dr. Thaj Homoeo Clinic — home" className="relative z-[2] flex items-center rounded-full px-[11px] py-[3px] font-logo text-[26px] text-p9 no-underline
-                   bg-[linear-gradient(to_top_right,#241b17_0%,#2f2623_50%,#6f696d_100%)]
-                   shadow-[inset_0_1px_1px_rgba(255,255,255,.22),0_8px_16px_-8px_rgba(20,12,10,.6)]
-                   max-sm:px-2 max-sm:py-0.5">
+        <a ref={logoRef} href="#" data-nav-item data-nav-logo aria-label="Dr. Thaj Homoeo Clinic — home" className={`relative z-[2] ${LOGO_PILL}`}>
           <img
             src="/assets/doctors/clinic_logo_og_nav_crop.webp" alt="Dr. Thaj Homoeo Clinic logo" width="271" height="234"
-            className="relative z-[2] block h-[44px] w-auto max-sm:h-[38px] max-[375px]:h-[34px] max-[320px]:h-[30px]"
+            className={`relative z-[2] ${LOGO_IMG}`}
           />
         </a>
 
@@ -187,6 +205,13 @@ export default function Navbar() {
           </button>
         </div>
       </div>
+      {/* intro-only twin of the logo badge (invisible unless the intro runs) */}
+      <span
+        ref={logoTwinRef} aria-hidden="true"
+        className={`pointer-events-none invisible fixed z-[101] ${LOGO_PILL}`}
+      >
+        <img src="/assets/doctors/clinic_logo_og_nav_crop.webp" alt="" width="271" height="234" className={LOGO_IMG} />
+      </span>
     </nav>
   );
 }
