@@ -207,6 +207,9 @@ export const RESULTS = [
 export const CLINIC_PHOTOS = [
   { src: '/assets/hero-images/clinicImg1.webp', alt: 'Describe image 1' },
   { src: '/assets/hero-images/clinicImg2.webp', alt: 'Describe image 2' },
+  { src: '/assets/hero-images/clinicImg18.webp', alt: 'Describe image 16' },
+  { src: '/assets/hero-images/clinicImg19.webp', alt: 'Describe image 17' },
+  { src: '/assets/hero-images/clinicImg20.webp', alt: 'Describe image 18' },
   { src: '/assets/hero-images/clinicImg10.webp', alt: 'Describe image 3' },
   { src: '/assets/hero-images/clinicImg17.webp', alt: 'Describe image 11' },
   { src: '/assets/hero-images/clinicImg3.webp', alt: 'Describe image 5' },
@@ -215,9 +218,6 @@ export const CLINIC_PHOTOS = [
   { src: '/assets/hero-images/clinicImg14.webp', alt: 'Describe image 8' },
   { src: '/assets/hero-images/clinicImg15.webp', alt: 'Describe image 9' },
   { src: '/assets/hero-images/clinicImg16.webp', alt: 'Describe image 10' },
-  { src: '/assets/hero-images/clinicImg18.webp', alt: 'Describe image 16' },
-  { src: '/assets/hero-images/clinicImg19.webp', alt: 'Describe image 17' },
-  { src: '/assets/hero-images/clinicImg20.webp', alt: 'Describe image 18' },
 
   { src: '/assets/gallery/gallery5.webp', alt: 'Describe image 12' },
   { src: '/assets/gallery/gallery2.webp', alt: 'Describe image 13' },

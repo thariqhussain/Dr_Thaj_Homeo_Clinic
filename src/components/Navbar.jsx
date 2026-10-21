@@ -130,8 +130,8 @@ export default function Navbar() {
                    shadow-[inset_0_1px_1px_rgba(255,255,255,.22),0_8px_16px_-8px_rgba(20,12,10,.6)]
                    max-sm:px-2 max-sm:py-0.5">
           <img
-            src="/assets/doctors/clinic_logo_og.webp" alt="Dr. Thaj Homoeo Clinic logo" width="70" height="46"
-            className="relative z-[2] block h-[46px] w-auto max-sm:h-[38px] max-[375px]:h-[34px] max-[320px]:h-[30px]"
+            src="/assets/doctors/clinic_logo_og_nav.webp" alt="Dr. Thaj Homoeo Clinic logo" width="618" height="404"
+            className="relative z-[2] -mx-[26px] -my-[14px] block h-[74px] w-auto max-sm:-mx-[22px] max-sm:-my-3 max-sm:h-[64px] max-[375px]:h-[58px] max-[320px]:h-[52px]"
           />
         </a>
 
