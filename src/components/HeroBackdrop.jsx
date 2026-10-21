@@ -1,6 +1,6 @@
-/* Decorative layer for the hero: a faint dot grid plus two botanical line-art sprigs.
-   The dots start as a static CSS gradient. On devices with a mouse (and no reduced-motion preference),
-   dotField.js swaps them for a canvas that reacts to the cursor — see that file for the cost controls.
+/* Decorative layer for the hero: a faint scatter of clinic icons (pellets, leaves, drops…) plus two botanical line-art sprigs.
+   dotField.js draws the icons on a canvas; with a mouse (and no reduced-motion preference) they react to the cursor —
+   see that file for the cost controls. The CSS dot grid is only a fallback until the canvas has drawn.
    The sprigs draw themselves once on load (CSS only) and then sit still; see .sprig-path in index.css. */
 
 import { useEffect, useRef, useState } from 'react';
@@ -38,8 +38,8 @@ export default function HeroBackdrop() {
   }, []);
 
   useEffect(() => {
-    if (prefersReducedMotion() || !canHover()) return;       // touch / reduced motion keep the static CSS dots
-    const df = createDotField({ canvas: canvas.current, layer: layer.current, listenOn: root.current.parentElement });
+    /* touch / reduced motion still get the icons, drawn once and left still */
+    const df = createDotField({ canvas: canvas.current, layer: layer.current, listenOn: root.current.parentElement, interactive: canHover() && !prefersReducedMotion() });
     return () => df.destroy();
   }, []);
 

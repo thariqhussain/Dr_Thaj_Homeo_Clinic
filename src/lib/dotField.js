@@ -1,28 +1,58 @@
-/* Interactive dot grid for the hero (plain 2D canvas, no libraries).
-   Draws the same dot grid as the static CSS backdrop (same spacing, colour and edge fade), so the hand-over is
-   invisible. Dots near the cursor glow, grow slightly and are pushed gently away, then spring back when it leaves.
+/* Interactive icon field for the hero (plain 2D canvas, no libraries).
+   A faint scatter of homoeopathy-clinic icons — mostly pellets, then leaves, drops, crosses and bottles — laid out on
+   a loose grid. Icons near the cursor glow, grow slightly and are pushed gently away (leaves also turn), then spring
+   back when it leaves.
 
-   Cost control: the loop only runs while something is moving. It stops once the dots have settled, when the
-   hero is off-screen, and never starts on touch or reduced-motion (the static CSS dots stay). */
+   Cost control: the loop only runs while something is moving. It stops once the icons have settled, when the
+   hero is off-screen, and never starts on touch or reduced-motion (the icons are then just drawn once, still). */
 
-const GAP = 22;                 // dot spacing in css px — keep equal to `background-size` of .hero-dots
-const R0 = 1.05;                // resting dot radius
-const BASE_A = 0.32;            // resting dot opacity (same as the CSS gradient)
+const GAP = 22;                 // icon spacing in css px (odd rows are shifted half a step)
+const JITTER = 3.5;             // random offset of each icon from its grid spot (px)
+const BASE_A = 0.3;             // resting icon opacity
+const GROW = 0.55;              // how much more an icon grows under the cursor (0.55 = +55%)
+const TURN = 0.8;               // how far leaves turn under the cursor (radians)
 const REACH = 130;              // how far from the cursor dots react (px)
 const PUSH = 16;                // how far the nearest dots get pushed (px)
 const K = 0.1, DAMP = 0.8;      // spring stiffness / damping — lower K = softer, lower DAMP = less bounce
 const BASE = [90, 138, 106];    // resting colour
-const HOT = [46, 108, 72];      // colour of dots under the cursor
+const HOT = [46, 108, 72];      // colour of icons under the cursor
 const LEVELS = 10;              // resting opacity is batched into this many levels (keeps drawing fast)
 const TAU = Math.PI * 2;
 
-export function createDotField({ canvas, layer, listenOn }) {
+/* icon kinds, picked per grid cell: mostly pellets */
+const PELLET = 0, LEAF = 1, DROP = 2, CROSS = 3, BOTTLE = 4;
+const pick = (h) => (h < 0.6 ? PELLET : h < 0.8 ? LEAF : h < 0.9 ? DROP : h < 0.96 ? CROSS : BOTTLE);
+
+/* adds one icon (centre X,Y, size factor s, rotation rot) to the current path — filled shapes only, so each opacity
+   level can still be drawn as a single path */
+function addShape(ctx, kind, X, Y, s, rot) {
+  if (kind === PELLET) {
+    const r = 2 * s;
+    ctx.moveTo(X + r, Y); ctx.arc(X, Y, r, 0, TAU);
+  } else if (kind === LEAF) {
+    const c = Math.cos(rot), n = Math.sin(rot), L = 6 * s, W = 5.2 * s;
+    const pt = (x, y) => [X + x * c - y * n, Y + x * n + y * c];
+    const a = pt(-L, 0), m1 = pt(0, -W), e = pt(L, 0), m2 = pt(0, W);
+    ctx.moveTo(a[0], a[1]); ctx.quadraticCurveTo(m1[0], m1[1], e[0], e[1]); ctx.quadraticCurveTo(m2[0], m2[1], a[0], a[1]);
+  } else if (kind === DROP) {
+    ctx.moveTo(X, Y - 5 * s);
+    ctx.bezierCurveTo(X + 5 * s, Y, X + 4 * s, Y + 4.5 * s, X, Y + 4.5 * s);
+    ctx.bezierCurveTo(X - 4 * s, Y + 4.5 * s, X - 5 * s, Y, X, Y - 5 * s);
+  } else if (kind === CROSS) {
+    ctx.rect(X - 4 * s, Y - s, 8 * s, 2 * s); ctx.rect(X - s, Y - 4 * s, 2 * s, 8 * s);
+  } else {
+    ctx.rect(X - 2.6 * s, Y - 1.5 * s, 5.2 * s, 5.5 * s); ctx.rect(X - 1.4 * s, Y - 4.2 * s, 2.8 * s, 2.4 * s);
+  }
+}
+const rand = (ix, iy, k) => { const v = Math.sin(ix * 127.1 + iy * 311.7 + k * 74.7) * 43758.5453; return v - Math.floor(v); };
+
+export function createDotField({ canvas, layer, listenOn, interactive = true }) {
   const area = canvas.parentElement;
   const ctx = canvas.getContext('2d');
   if (!ctx || !area) return { destroy() {} };
 
   let cw = 0, ch = 0, dpr = 1, n = 0;
-  let x0, y0, ox, oy, vx, vy, gl, ba, hot, starts = [];
+  let x0, y0, ox, oy, vx, vy, gl, ba, hot, kind, rot0, starts = [];
   let cx = -9999, cy = -9999, px = -9999, py = -9999, present = false;
   let raf = 0, last = 0, running = false, visible = true;
 
@@ -33,31 +63,35 @@ export function createDotField({ canvas, layer, listenOn }) {
     dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     canvas.width = Math.round(cw * dpr); canvas.height = Math.round(ch * dpr);
     const list = [];
-    for (let y = GAP / 2; y < ch; y += GAP) {
-      for (let x = GAP / 2; x < cw; x += GAP) {
+    for (let iy = 0, y = GAP / 2; y < ch; y += GAP, iy++) {
+      for (let ix = 0, x = GAP / 2 + (iy % 2 ? GAP / 2 : 0); x < cw; x += GAP, ix++) {
         /* same fade as the CSS mask: ellipse 80% 75% at 58% 45%, opaque to 25%, clear at 82% */
         const t = Math.hypot((x - 0.58 * cw) / (0.8 * cw), (y - 0.45 * ch) / (0.75 * ch));
         const a = Math.min(1, Math.max(0, (0.82 - t) / 0.57));
         if (a < 0.03) continue;
-        list.push([x, y, Math.min(LEVELS - 1, Math.max(0, Math.ceil(a * LEVELS) - 1))]);
+        list.push([
+          x + (rand(ix, iy, 1) - 0.5) * 2 * JITTER, y + (rand(ix, iy, 2) - 0.5) * 2 * JITTER,
+          Math.min(LEVELS - 1, Math.max(0, Math.ceil(a * LEVELS) - 1)),
+          pick(rand(ix, iy, 3)), (rand(ix, iy, 4) - 0.5) * Math.PI * 1.2,
+        ]);
       }
     }
     list.sort((p, q) => p[2] - q[2]);
     n = list.length;
     x0 = new Float32Array(n); y0 = new Float32Array(n); ba = new Float32Array(n);
     ox = new Float32Array(n); oy = new Float32Array(n); vx = new Float32Array(n); vy = new Float32Array(n);
-    gl = new Float32Array(n); hot = new Uint8Array(n);
+    gl = new Float32Array(n); hot = new Uint8Array(n); kind = new Uint8Array(n); rot0 = new Float32Array(n);
     starts = new Array(LEVELS + 1).fill(n);
     for (let i = n - 1; i >= 0; i--) starts[list[i][2]] = i;
     for (let l = LEVELS - 1; l >= 0; l--) if (starts[l] > starts[l + 1]) starts[l] = starts[l + 1];
-    list.forEach(([x, y, l], i) => { x0[i] = x; y0[i] = y; ba[i] = (BASE_A * (l + 1)) / LEVELS; });
+    list.forEach(([x, y, l, k, r], i) => { x0[i] = x; y0[i] = y; ba[i] = (BASE_A * (l + 1)) / LEVELS; kind[i] = k; rot0[i] = r; });
     return true;
   };
 
   const draw = () => {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, cw, ch);
-    /* resting dots: one path per opacity level */
+    /* resting icons: one path per opacity level */
     for (let l = 0; l < LEVELS; l++) {
       const a = starts[l], b = starts[l + 1];
       if (a >= b) continue;
@@ -66,19 +100,18 @@ export function createDotField({ canvas, layer, listenOn }) {
       for (let i = a; i < b; i++) {
         if (hot[i]) continue;
         const X = x0[i] + ox[i], Y = y0[i] + oy[i];
-        ctx.moveTo(X + R0, Y); ctx.arc(X, Y, R0, 0, TAU);
+        addShape(ctx, kind[i], X, Y, 1, rot0[i]);
       }
       ctx.fill();
     }
-    /* dots under the cursor: greener, bigger, more opaque */
+    /* icons under the cursor: greener, bigger, more opaque (leaves turn) */
     for (let i = 0; i < n; i++) {
       if (!hot[i]) continue;
       const g = Math.min(1, gl[i]);
       const r = Math.round(BASE[0] + (HOT[0] - BASE[0]) * g), gg = Math.round(BASE[1] + (HOT[1] - BASE[1]) * g), b = Math.round(BASE[2] + (HOT[2] - BASE[2]) * g);
       ctx.fillStyle = `rgba(${r},${gg},${b},${(ba[i] + g * (0.8 - ba[i])).toFixed(3)})`;
-      const rad = R0 * (1 + g * 1.3);
       const X = x0[i] + ox[i], Y = y0[i] + oy[i];
-      ctx.beginPath(); ctx.arc(X, Y, rad, 0, TAU); ctx.fill();
+      ctx.beginPath(); addShape(ctx, kind[i], X, Y, 1 + g * GROW, rot0[i] + g * TURN); ctx.fill();
     }
   };
 
@@ -154,10 +187,12 @@ export function createDotField({ canvas, layer, listenOn }) {
   ro.observe(area);
 
   if (!build()) { io.disconnect(); ro.disconnect(); return { destroy() {} }; }
-  draw();                                               // first frame matches the CSS dots exactly…
-  layer.classList.add('is-live');                       // …so the CSS layer can be switched off without a visible change
-  listenOn.addEventListener('pointermove', onMove);
-  listenOn.addEventListener('pointerleave', onLeave);
+  draw();
+  layer.classList.add('is-live');                       // the canvas owns the backdrop now: switch the CSS fallback off
+  if (interactive) {
+    listenOn.addEventListener('pointermove', onMove);
+    listenOn.addEventListener('pointerleave', onLeave);
+  }
 
   return {
     destroy() {
