@@ -6,10 +6,12 @@
 <title>Dr. Thaj Homoeo Clinic — Minjur, Chennai</title>
 
 <!-- Browser tab logo -->
-<link rel="icon" type="image/webp" href="/assets/doctors/clinic_logo_og.webp">
-<link rel="shortcut icon" href="/assets/doctors/clinic_logo_og.webp">
+<link rel="icon" type="image/webp" href="/assets/doctors/clinic_logo.webp">
+<link rel="shortcut icon" href="/assets/doctors/clinic_logo.webp">
 
 <meta name="description" content="Dr. Thaj Homoeo Clinic, Minjur, Chennai — homoeopathic care for thyroid, respiratory, digestive, joint, women’s and children’s health. Treat the person as whole.">
+
+<link rel="canonical" href="https://www.drthajhomoeoclinic.in/">
 
 <!-- Open Graph (link previews: WhatsApp, iMessage, Facebook, LinkedIn, Telegram) -->
 <meta property="og:site_name" content="Dr. Thaj Homoeo Clinic">
@@ -37,6 +39,53 @@
 <!-- Non-render-blocking Google Fonts (swap in when ready) -->
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600&display=swap" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600&display=swap"></noscript>
+<!-- Structured data for Google (static on purpose, so Google sees it without running JavaScript) -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "MedicalClinic",
+  "@id": "https://www.drthajhomoeoclinic.in/#clinic",
+  "name": "Dr. Thaj Homoeo Clinic",
+  "description": "Personalised homoeopathic care for thyroid, respiratory, digestive, joint, women's and children's health in Minjur, Chennai.",
+  "url": "https://www.drthajhomoeoclinic.in/",
+  "image": "https://www.drthajhomoeoclinic.in/assets/doctors/og-image.png",
+  "logo": "https://www.drthajhomoeoclinic.in/assets/doctors/clinic_logo.webp",
+  "telephone": ["+919361708870", "+919791023254"],
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "1/7, D.K.R. Complex, Near Railway Station, Bakthavatchalam Street",
+    "addressLocality": "Minjur",
+    "addressRegion": "Tamil Nadu",
+    "postalCode": "601203",
+    "addressCountry": "IN"
+  },
+  "openingHoursSpecification": [
+    {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+      "opens": "10:00",
+      "closes": "13:00"
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+      "opens": "18:00",
+      "closes": "22:00"
+    }
+  ],
+  "employee": {
+    "@type": "Physician",
+    "name": "Dr. S. Mohammed Thajudeen",
+    "honorificSuffix": "B.H.M.S, M.Sc Psychology"
+  },
+  "hasMap": "https://www.google.com/maps/search/?api=1&query=Dr.+Thaj+Homoeo+Clinic+Minjur+Chennai",
+  "sameAs": [
+    "https://www.instagram.com/thajusmart/",
+    "https://www.facebook.com/share/1Eg7HTHXF1/",
+    "https://www.justdial.com/Chennai/Dr-Thaj-Homoeo-Clinic-Near-Railway-Station-Minjur-Minjur/044PXX44-XX44-260301133151-H7N5_BZDET"
+  ]
+}
+</script>
 </head>
 <body>
 <div id="root"></div>
