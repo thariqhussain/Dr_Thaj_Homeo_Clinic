@@ -1,12 +1,12 @@
 /* Decorative layer for the hero: a faint scatter of medical icons (crosses, stethoscopes, caduceus, bottles, capsules) plus two botanical line-art sprigs.
-   dotField.js draws the icons on a canvas; with a mouse (and no reduced-motion preference) they react to the cursor —
-   see that file for the cost controls. The CSS dot grid is only a fallback until the canvas has drawn.
+   dotField.js draws the icons on a canvas ONCE and leaves them still (interactive: false), so there is no cursor / water-ripple effect and no animation loop.
+   The CSS dot grid is only a fallback until the canvas has drawn.
    The sprigs draw themselves once on load (CSS only) and then sit still; see .sprig-path in index.css. */
 
 import { useEffect, useRef, useState } from 'react';
 import { onIntro } from '../lib/intro';
 import { createDotField } from '../lib/dotField';
-import { canHover, prefersReducedMotion } from '../lib/utils';
+import { prefersReducedMotion } from '../lib/utils';
 
 const STEM = 'M46 432 C8 300 210 236 150 12';
 /* x, y, rotation (deg), scale — one entry per leaf along the stem */
@@ -38,8 +38,8 @@ export default function HeroBackdrop() {
   }, []);
 
   useEffect(() => {
-    /* touch / reduced motion still get the icons, drawn once and left still */
-    const df = createDotField({ canvas: canvas.current, layer: layer.current, listenOn: root.current.parentElement, interactive: canHover() && !prefersReducedMotion() });
+    /* icons are drawn once and left still on every device: no pointer tracking, no ripple, no animation loop */
+    const df = createDotField({ canvas: canvas.current, layer: layer.current, listenOn: root.current.parentElement, interactive: false });
     return () => df.destroy();
   }, []);
 

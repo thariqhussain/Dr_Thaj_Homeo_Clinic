@@ -365,3 +365,13 @@ export const ABOUT_STORY = [
     img: GALLERY[3],
   },
 ];
+
+/* The doctor's details, printed on the FRONT of the ID badge (BadgeStage.jsx). Edit freely. An empty field is left out.
+   `degrees` come from QUALIFICATIONS above; `reg` is the registration number, e.g. 'Govt Reg. No. 0000A'. */
+export const DOCTOR_CARD = {
+  name: 'Dr. S. Mohammed Thajudeen',
+  role: 'Homoeopathic Physician',
+  degrees: QUALIFICATIONS.map((q) => q.title).join(' · '),
+  reg: '',
+};
+

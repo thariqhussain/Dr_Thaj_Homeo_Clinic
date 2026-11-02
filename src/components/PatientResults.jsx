@@ -1,16 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { RESULTS } from '../data/content';
-import { glideTo } from '../lib/utils';
+import { gsap } from '../lib/gsap';
+import { RESULTS as ALL_RESULTS } from '../data/content';
+import { prefersReducedMotion } from '../lib/utils';
 
-/* Patient results: one horizontal strip, two images per view (one on phones).
-   Arrow buttons (or swipe / trackpad / keyboard) move the strip; tapping an image opens it full view.
-   Data lives in content.js → RESULTS. Each result is { id, condition, img } where `img` is a ready-made
-   before/after image (the condition name is already written inside the image). `condition` is used for alt text only. */
+/* Patient results — a normal section (no pinning, it scrolls past like any other).
+   The before/after cards sit in one row you can swipe or drag; arrow buttons and an "n of N" counter move it on every screen size.
+   Tapping any card opens it full view. Every case in content.js → RESULTS is shown: { id, condition, img }, where `img` is a ready-made
+   before/after image (the condition name is already written inside it). `condition` is used for alt text only. */
 
-const GAP = 24; // px — must match gap-6 on the strip
+/* every case in content.js is shown */
+const RESULTS = ALL_RESULTS;
+/* one tint per card, the same family as the other sections' colours */
+const TINTS = ['#9fd59a', '#f6a6c9', '#ffb86b', '#7fb7e6'];
 
 const FRAME =
-  'relative w-full overflow-hidden rounded-[22px] bg-[#0d1114] shadow-[0_30px_60px_-28px_rgba(33,37,41,.4),0_0_0_6px_rgba(255,255,255,.7)]';
+  'relative w-full overflow-hidden rounded-[22px] bg-[#0d1114] shadow-[0_40px_80px_-30px_rgba(0,0,0,.65),0_0_0_1px_rgba(255,255,255,.14)]';
 
 const ARROW =
   'grid h-11 w-11 place-items-center rounded-full border border-accent/30 bg-white text-p9 shadow-[0_10px_24px_-12px_rgba(33,37,41,.5)] ' +
@@ -80,118 +84,147 @@ function Lightbox({ index, onClose, onStep }) {
   );
 }
 
+const pad2 = (v) => String(v).padStart(2, '0');
+
 export default function PatientResults() {
   const n = RESULTS.length;
+  const root = useRef(null);
   const strip = useRef(null);
   const opener = useRef(null);                       // the card that opened the viewer, so focus can return to it
-  const [view, setView] = useState({ first: 1, last: Math.min(2, n), perView: 2, canPrev: false, canNext: n > 2 });
   const [open, setOpen] = useState(null);            // index of the image in full view, or null
+  const [view, setView] = useState({ at: 1, canPrev: false, canNext: n > 1 });
+  const [swiped, setSwiped] = useState(false);
 
+  /* how far one card moves the row: one card + the gap */
+  const stepPx = () => {
+    const el = strip.current;
+    const a = el?.children[0];
+    const b = el?.children[1];
+    return a && b ? b.offsetLeft - a.offsetLeft : a ? a.offsetWidth : 1;
+  };
   const measure = useCallback(() => {
     const el = strip.current;
-    const slide = el?.firstElementChild;
-    if (!slide) return;
-    const step = slide.offsetWidth + GAP;
-    const perView = Math.max(1, Math.round((el.clientWidth + GAP) / step));
-    const first = Math.round(el.scrollLeft / step);
+    if (!el || !el.children.length) return;
+    const step = stepPx();
     setView({
-      first: first + 1,
-      last: Math.min(first + perView, n),
-      perView,
+      at: Math.min(n, Math.max(1, Math.round(el.scrollLeft / step) + 1)),
       canPrev: el.scrollLeft > 4,
       canNext: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
     });
+    if (el.scrollLeft > 24) setSwiped(true);
   }, [n]);
 
   useEffect(() => {
-    const el = strip.current;
-    if (!el) return;
     measure();
-    el.addEventListener('scroll', measure, { passive: true });
     window.addEventListener('resize', measure);
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
-    if (ro) { ro.observe(el); [...el.children].forEach((c) => ro.observe(c)); }
-    return () => { ro?.disconnect(); el.removeEventListener('scroll', measure); window.removeEventListener('resize', measure); };
+    return () => window.removeEventListener('resize', measure);
   }, [measure]);
 
+  /* the arrows move the row by the number of cards that are in view (at least one) */
   const go = (dir) => {
     const el = strip.current;
-    const slide = el?.firstElementChild;
-    if (!slide) return;
-    const stepPx = slide.offsetWidth + GAP;
-    const perView = Math.max(1, Math.round((el.clientWidth + GAP) / stepPx));
-    glideTo(el, Math.round(el.scrollLeft / stepPx) * stepPx + dir * stepPx * perView);   // never depends on the dimmed state
+    if (!el) return;
+    const step = stepPx();
+    const per = Math.max(1, Math.floor(el.clientWidth / step));
+    el.scrollBy({ left: dir * step * per, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
   };
+
+  useEffect(() => {
+    if (prefersReducedMotion() || !root.current) return undefined;
+    const ctx = gsap.context(() => {
+      gsap.from('.pr-head > *', { y: 24, opacity: 0, duration: 0.7, stagger: 0.08, ease: 'power3.out', clearProps: 'transform,opacity', scrollTrigger: { trigger: root.current, start: 'top 80%', once: true } });
+    }, root);
+    return () => ctx.revert();
+  }, []);
 
   const openAt = (i, e) => { opener.current = e.currentTarget; setOpen(i); };
   const close = useCallback(() => { setOpen(null); opener.current?.focus(); }, []);
   const step = useCallback((d) => setOpen((i) => (i === null ? i : (i + d + n) % n)), [n]);
 
-  /* keep the strip in step with the viewer so closing it lands on the image you were last looking at */
-  useEffect(() => {
-    if (open === null) return;
-    const el = strip.current;
-    const slide = el?.children[open];
-    if (slide) slide.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' });
-  }, [open]);
-
   if (!n) return null;
 
   return (
     <section
-      id="results" aria-labelledby="pr-title"
-      className="relative isolate mx-2.5 my-2.5 overflow-hidden rounded-[18px] border border-accent/20 bg-[linear-gradient(160deg,#f7f9f5_0%,#e7efe5_100%)] px-12 py-16
-                 max-lg:px-8 max-lg:py-12 max-sm:px-4 max-sm:py-10 max-[375px]:px-3"
+      id="results" ref={root} aria-labelledby="pr-title" data-nav-dark
+      className="relative isolate mx-2.5 my-2.5 overflow-hidden rounded-[18px] bg-[radial-gradient(120%_100%_at_0%_0%,#254033_0%,#14211a_60%,#0d1511_100%)] px-12 py-10 text-white
+                 max-lg:px-8 max-lg:py-9 max-sm:px-4 max-sm:py-8"
     >
-      <span aria-hidden="true" className="orb z-0 -left-24 top-10 h-[320px] w-[320px] bg-accent/[.22]" />
-      <span aria-hidden="true" className="orb z-0 -bottom-24 -right-16 h-[300px] w-[300px] bg-accent-light/90" />
+      <span aria-hidden="true" className="orb z-0 -left-24 top-10 h-[320px] w-[320px] bg-accent/[.28]" />
+      <span aria-hidden="true" className="orb z-0 -bottom-24 -right-16 h-[300px] w-[300px] bg-accent-light/[.12]" />
 
-      <div className="relative z-[1] mx-auto w-full max-w-[1040px]">
-        <header className="mx-auto mb-8 max-w-[620px] text-center max-md:mb-6">
-          <h2 id="pr-title" className="mb-2 font-display text-[clamp(26px,3vw,38px)] font-normal leading-[1.1] text-p9">
-            Results our patients have seen
-          </h2>
-          <p className="text-[14.5px] leading-[1.6] text-p7">
-            These results are not typical , individual results will vary
-          </p>
+      <div className="relative z-[1] mx-auto max-w-[1240px]">
+        <header className="pr-head mb-5 flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
+          <div>
+            <p className="mb-2 text-[12px] font-semibold uppercase tracking-[.16em] text-mint">Patient results</p>
+            <h2 id="pr-title" className="font-display text-[clamp(26px,2.8vw,40px)] font-normal leading-[1.08] tracking-[-.02em]">
+              Results our patients have seen
+            </h2>
+            <p className="mt-2 max-w-[460px] text-[14px] leading-[1.6] text-white/70 max-sm:text-[14px]">
+              {n} real cases, shared with the patients’ consent. Tap any photo to see it in full.
+            </p>
+          </div>
+
+          {/* counter + arrows: on every screen size */}
+          {n > 1 && (
+            <div className="flex items-center gap-4">
+              <p className="m-0 text-[14px] tabular-nums text-white/70" aria-live="polite">{pad2(view.at)} / {pad2(n)}</p>
+              <div className="flex gap-2">
+                {[['Previous results', -1, 'left', view.canPrev], ['Next results', 1, 'right', view.canNext]].map(([l, d, dir, can]) => (
+                  <button
+                    key={l} type="button" aria-label={l} aria-disabled={!can || undefined} onClick={() => can && go(d)}
+                    className={`${ARROW} cursor-pointer ${can ? '' : 'cursor-default opacity-35'}`}
+                  >
+                    <Chevron dir={dir} />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </header>
 
-        {/* controls: position readout on the left, arrows on the right */}
-        <div className="mb-4 flex items-center justify-between gap-4">
-          <p className="text-[13.5px] text-p7" aria-live="polite">
-            {view.first === view.last ? `${view.first}` : `${view.first}–${view.last}`} of {n}
-          </p>
-          <div className="flex gap-2">
-            <button type="button" aria-label="Previous results" aria-disabled={!view.canPrev || undefined} onClick={() => go(-1)} className={`${ARROW} ${view.canPrev ? '' : 'opacity-35'}`}><Chevron dir="left" /></button>
-            <button type="button" aria-label="Next results" aria-disabled={!view.canNext || undefined} onClick={() => go(1)} className={`${ARROW} ${view.canNext ? '' : 'opacity-35'}`}><Chevron dir="right" /></button>
-          </div>
-        </div>
-
         <div
-          ref={strip} role="region" aria-roledescription="carousel" aria-label="Patient results"
-          className="-mx-2 flex snap-x snap-mandatory gap-6 overflow-x-auto px-2 pb-8 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          ref={strip} onScroll={measure} role="region" aria-roledescription="carousel" aria-label="Patient results" tabIndex={0}
+          className="-mx-2 flex snap-x snap-mandatory gap-6 overflow-x-auto px-2 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {RESULTS.map((r, i) => (
             <figure
-              key={r.id ?? r.condition} aria-roledescription="slide" aria-label={`${i + 1} of ${n}`}
-              className="m-0 shrink-0 basis-[calc(50%-12px)] snap-start max-md:basis-full"
+              key={r.id ?? r.condition} aria-label={`${i + 1} of ${n}`}
+              className="pr-card group m-0 shrink-0 basis-[calc(50%-12px)] snap-start max-md:basis-[84%] lg:basis-[calc((100%-48px)/3)]"
             >
               <button
                 type="button" onClick={(e) => openAt(i, e)} aria-label={`View ${r.condition} in full`}
-                className={`${FRAME} block aspect-[5/4] cursor-zoom-in p-0 focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-4 focus-visible:outline-accent`}
+                className={`${FRAME} block aspect-[5/4] cursor-zoom-in p-0 transition-transform duration-500 ease-out [@media(hover:hover)]:group-hover:-translate-y-1 focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-4 focus-visible:outline-mint`}
               >
+                {/* a coloured edge along the top of each photo */}
+                <span aria-hidden="true" className="absolute inset-x-0 top-0 z-[1] h-1.5" style={{ background: TINTS[i % TINTS.length] }} />
                 <img
                   src={r.img} alt={`${r.condition}: before and after treatment`}
                   loading="lazy" decoding="async" draggable="false"
                   className="absolute inset-0 h-full w-full object-contain"
                 />
               </button>
+              {/* caption plate: the case number in its colour, the condition, and a hint to open it */}
+              <figcaption className="mt-3 flex items-center gap-3 px-1">
+                <span className="grid h-9 min-w-9 flex-none place-items-center rounded-full px-2.5 text-[13px] font-semibold tabular-nums text-p9" style={{ background: TINTS[i % TINTS.length] }}>
+                  {pad2(i + 1)}
+                </span>
+                <span className="min-w-0 flex-1 font-display text-[clamp(17px,1.5vw,22px)] leading-tight text-white">{r.condition}</span>
+                <span aria-hidden="true" className="hidden flex-none text-[12.5px] text-white/55 transition-colors duration-300 group-hover:text-white sm:inline">View full →</span>
+              </figcaption>
             </figure>
           ))}
         </div>
 
-        <p className="mx-auto mt-2 max-w-[560px] text-center text-[12px] leading-relaxed text-p6">
-          Every patient responds differently. These photos show individual cases and are not a promise of results.
+        {/* phones / tablets: this line says "swipe" until they have */}
+        {!swiped && n > 1 && (
+          <p aria-hidden="true" className="mt-2 flex items-center justify-center gap-1.5 text-[13px] font-medium text-mint lg:hidden">
+            Swipe to see more
+            <svg className="animate-pulse" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+          </p>
+        )}
+
+        <p className="mt-3 max-w-[640px] text-[12px] leading-relaxed text-white/55">
+          These results are not typical, individual results will vary. Every patient responds differently; these photos show individual cases and are not a promise of results.
         </p>
       </div>
 

@@ -1,444 +1,371 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { gsap } from '../lib/gsap';
-import { BENTO_LAYOUTS, TREATMENTS, TREATMENT_CATEGORIES } from '../data/content';
-import { useInView } from '../hooks/useInView';
-import { canHover, prefersReducedMotion } from '../lib/utils';
+import { TREATMENTS, TREATMENT_CATEGORIES as CATS } from '../data/content';
+import { prefersReducedMotion } from '../lib/utils';
 
-const CYCLE = 6;   // seconds each category stays on screen before the section moves on by itself
+/* Treatments — five departments, each with its own colour.
+   Desktop: a rail of big department names on the left (number, name, how many treatments; the active one is lit in its colour with a
+   sliding bar), the department's treatments on the right as photo cards (the first one large; the conditions each covers are chips
+   that appear on the photo), then every condition in the department as a cloud of chips.
+   Phones and tablets: the departments are a swipeable row of pills; the cards swipe too (a fingertip beats a hover).
+   A complaint search jumps to the right department and marks the card and condition that match.
+   The whole section eases in as it scrolls into view. */
 
-/* Desktop / tablet sizes. Written with min-width variants so they never apply on phones,
-   where the compact bento below takes over. */
-const SIZE_CLASS = {
-  xl: 'min-[640px]:col-span-2 min-[1100px]:row-span-2',
-  wide: 'min-[640px]:col-span-2',
-  '': '',
-};
+const FIND = CATS.flatMap((c, ci) => (c.conditions || []).map((name) => ({ name, ci })));
+const TOTAL = new Set(FIND.map((f) => f.name.toLowerCase())).size;
+const TAB_LABEL = { metabolic: 'Metabolic', family: 'Women & children', skin: 'Skin & hair', pain: 'Pain & mind', systems: 'Body systems' };
+const TABS = CATS.map((c) => ({ label: TAB_LABEL[c.id] || c.label }));
+/* one colour per department (the same family as the colours in the doctor section's tornado) */
+const TINT = { metabolic: '#9fd59a', family: '#f6a6c9', skin: '#ffb86b', pain: '#7fb7e6', systems: '#c3a6e8' };
+const pad2 = (v) => String(v).padStart(2, '0');
+const TREATMENTS_OF = Object.fromEntries(CATS.map((c) => [c.id, TREATMENTS.filter((t) => t.cat === c.id)]));
 
-/* Phone bento: always 2 columns, every tile of the category visible at once (no sideways swiping).
-     4 tiles → big tile on the left spanning 2 rows, two small ones beside it, one wide strip underneath
-     3 tiles → big tile on the left spanning 2 rows, two small ones stacked beside it
-     2 tiles → two full-width strips
-   The strings are written out in full so Tailwind can see them. */
-const MOBILE_SPAN = {
-  4: ['max-sm:row-span-2', '', '', 'max-sm:col-span-2'],
-  3: ['max-sm:row-span-2', '', ''],
-  2: ['max-sm:col-span-2', 'max-sm:col-span-2'],
-};
-const MOBILE_ROWS = { 4: 'max-sm:grid-rows-3', 3: 'max-sm:grid-rows-2', 2: 'max-sm:grid-rows-2' };
+function useMedia(query) {
+  const [on, setOn] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const m = window.matchMedia(query);
+    const f = () => setOn(m.matches);
+    f();
+    m.addEventListener('change', f);
+    return () => m.removeEventListener('change', f);
+  }, [query]);
+  return on;
+}
 
-function Tile({ t, size, mobileSpan, mobileBig, index, live, onOpen }) {
-  const big = size === 'xl' || size === 'wide';
-  const reveal = big ? 'max-h-24 opacity-100' : 'max-h-0 opacity-0 group-hover:max-h-24 group-hover:opacity-100 group-focus-visible:max-h-24 group-focus-visible:opacity-100';
+const focusRing = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
+
+/* ── complaint search: type "thyroid", pick a result, land on its department with that condition marked ── */
+function Finder({ onPick }) {
+  const [q, setQ] = useState('');
+  const term = q.trim().toLowerCase();
+  const matches = useMemo(
+    () => (term ? FIND.filter((f) => f.name.toLowerCase().includes(term) || CATS[f.ci].label.toLowerCase().includes(term)).slice(0, 6) : []),
+    [term]
+  );
   return (
-    <button
-      type="button" onClick={(e) => onOpen(t, e.currentTarget)} aria-haspopup="true"
-      style={{ animationDelay: `${index * 70}ms` }}
-      className={`bento-tile group relative isolate flex min-w-0 flex-col justify-end overflow-hidden cursor-pointer rounded-3xl border-0 bg-p7 p-[22px] text-left font-body text-white no-underline
-                  focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-accent-light
-                  max-sm:rounded-2xl max-sm:p-2.5
-                  ${SIZE_CLASS[size]} ${mobileSpan} ${live ? 'animate-bento-in motion-reduce:animate-none' : 'opacity-0'}`}
-    >
-      <img
-        src={`/assets/treatments/${t.img}`} alt="" loading="lazy" decoding="async"
-        className="absolute inset-0 -z-[2] h-full w-full object-cover transition-transform duration-[800ms] ease-[cubic-bezier(.22,.61,.36,1)] group-hover:scale-[1.07]"
+    <div className="relative">
+      <label htmlFor="treatment-search" className="sr-only">Search your complaint</label>
+      <input
+        id="treatment-search" type="search" value={q} autoComplete="off" placeholder="Search your complaint"
+        onChange={(e) => setQ(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Escape') setQ(''); }}
+        className={`h-12 w-full rounded-md border border-p9/25 bg-white/70 px-4 font-body text-base text-p9 placeholder:text-p6 ${focusRing}`}
       />
-      <span className="glass-chip absolute left-[18px] top-[18px] rounded-full px-[13px] py-1.5 text-[11px] font-semibold uppercase tracking-[.08em] text-white max-sm:left-2 max-sm:top-2 max-sm:px-2 max-sm:py-[3px] max-sm:text-[9px] max-sm:tracking-[.06em]">
-        {t.chip}
-      </span>
-      <span
-        aria-hidden="true"
-        className="glass-chip absolute right-3.5 top-3.5 grid h-10 w-10 place-items-center rounded-full text-lg leading-none text-white
-                   [transition:transform_.35s_cubic-bezier(.34,1.2,.64,1),background_.3s_ease,color_.3s_ease]
-                   max-sm:right-2 max-sm:top-2 max-sm:h-6 max-sm:w-6 max-sm:text-xs
-                   group-hover:-rotate-45 group-hover:bg-white/90 group-hover:text-p9 group-focus-visible:-rotate-45 group-focus-visible:bg-white/90 group-focus-visible:text-p9"
-      >
-        &rarr;
-      </span>
-      <div className="relative">
-        <span
-          className={`block font-display font-normal text-white max-sm:leading-[1.15]
-                      ${size === 'xl' ? 'text-[clamp(28px,2.8vw,40px)] leading-[1.1]' : 'text-[clamp(18px,1.6vw,22px)] leading-[1.2]'}
-                      ${mobileBig ? 'max-sm:text-[clamp(17px,5vw,21px)]' : 'max-sm:text-[clamp(13px,3.7vw,15px)]'}`}
-        >
-          {t.title}
-        </span>
-        {/* descriptions are hidden on phones to keep the tiles compact */}
-        {t.sub && (
-          <span className={`mt-2 block overflow-hidden text-[13px] leading-normal text-white/[.84] [transition:max-height_.45s_ease,opacity_.35s_ease] max-sm:hidden [@media(hover:none)]:max-h-24 [@media(hover:none)]:opacity-100 ${reveal}`}>
-            {t.sub}
-          </span>
-        )}
-      </div>
-    </button>
+      <p role="status" className="sr-only">{term ? `${matches.length} matching conditions` : ''}</p>
+      {term && (
+        <div data-ui className="absolute inset-x-0 top-full z-30 mt-2 rounded-md bg-white p-1 shadow-[0_20px_40px_-20px_rgba(33,37,41,.45)]">
+          {matches.length ? (
+            <ul className="m-0 list-none p-0">
+              {matches.map((f) => (
+                <li key={`${f.ci}-${f.name}`}>
+                  <button
+                    type="button" onClick={() => { onPick(f); setQ(''); }}
+                    className={`flex w-full cursor-pointer flex-col items-start rounded border-0 bg-transparent px-3 py-2 text-left font-body text-base leading-snug text-p9 transition-colors duration-150 hover:bg-accent-light ${focusRing}`}
+                  >
+                    <span>{f.name}</span>
+                    <span className="text-sm text-p7">{CATS[f.ci].label}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="m-0 px-3 py-2 text-base text-p9">Not listed? Ask us about any health concern.</p>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
-const itemsOf = (t) => t.items || (t.sub ? t.sub.split(', ') : []);
-
-/* The condition chips used by both the hover card and the "All conditions" panel */
-function ConditionChips({ items }) {
+/* ── one department: one photo, the whole condition list as plain text, one action ── */
+function BookLink({ className = '' }) {
   return (
-    <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
-      {items.map((x) => (
-        <li key={x} className="rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[12.5px] leading-snug text-white/90">{x}</li>
+    <a
+      href="#booking"
+      className={`inline-flex items-center gap-2 rounded-md bg-p9 px-6 py-3 font-body text-sm font-medium text-p1 no-underline transition-colors duration-200 hover:bg-p8 ${focusRing} ${className}`}
+    >
+      Book a consultation <span aria-hidden="true">→</span>
+    </a>
+  );
+}
+
+/* ── which conditions in the department list belong to a photo (its `items`, or its `sub` split on commas) ── */
+const norm = (t) => t.toLowerCase().replace(/[^a-z0-9]/g, '');
+const ALIAS = { hypercholesterolemia: 'high cholesterol', hypertriglyceridemia: 'high triglycerides', hyperuricemia: 'high uric acid' };
+const condsOf = (t) => t.items || (t.sub || '').split(',').map((x) => x.trim()).filter(Boolean);
+function matchConds(t, all) {
+  const out = new Set();
+  if (!t) return out;
+  const byNorm = new Map(all.map((c) => [norm(c), c]));
+  condsOf(t).forEach((raw) => {
+    const n = norm(ALIAS[norm(raw)] || raw);
+    if (byNorm.has(n)) { out.add(byNorm.get(n)); return; }
+    byNorm.forEach((c, k) => { if (n.includes(k)) out.add(c); });     // "Fertility counselling services" → "Fertility counselling"
+  });
+  return out;
+}
+
+
+/* ── phones / tablets: the department tabs as a row you swipe; the chosen one is lit in its colour and kept in view ── */
+function ScrollTabs({ active, onChange }) {
+  const box = useRef(null);
+  const refs = useRef([]);
+  const first = useRef(true);
+
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    const c = box.current;
+    const el = refs.current[active];
+    if (!c || !el) return;
+    c.scrollTo({ left: el.offsetLeft - (c.clientWidth - el.offsetWidth) / 2, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+  }, [active]);
+
+  const onKey = (e) => {
+    const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+    if (!d) return;
+    e.preventDefault();
+    const next = (active + d + TABS.length) % TABS.length;
+    onChange(next);
+    refs.current[next]?.focus();
+  };
+
+  return (
+    <div
+      ref={box} role="tablist" aria-label="Treatment departments" onKeyDown={onKey}
+      className="-mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:-mx-8 md:px-8"
+    >
+      {TABS.map((t, i) => (
+        <button
+          key={t.label} ref={(el) => (refs.current[i] = el)} type="button" role="tab" id={`tt-${CATS[i].id}`}
+          aria-selected={i === active} aria-controls="treatments-panel" tabIndex={i === active ? 0 : -1}
+          onClick={() => onChange(i)}
+          className={`min-h-11 flex-none cursor-pointer snap-center whitespace-nowrap rounded-full border-0 px-5 font-body text-[15px] font-medium text-p9 transition-[background,transform] duration-200 ${focusRing}
+                      ${i === active ? 'scale-105 shadow-[0_8px_18px_-10px_rgba(33,37,41,.5)]' : 'bg-white/70'}`}
+          style={i === active ? { background: TINT[CATS[i].id] } : undefined}
+        >
+          {t.label}
+        </button>
       ))}
-    </ul>
+    </div>
+  );
+}
+
+/* ── desktop: the rail of departments ── */
+function Rail({ active, onChange }) {
+  const refs = useRef([]);
+  const onKey = (e) => {
+    const d = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
+    if (!d) return;
+    e.preventDefault();
+    const next = (active + d + TABS.length) % TABS.length;
+    onChange(next);
+    refs.current[next]?.focus();
+  };
+  return (
+    <div role="tablist" aria-label="Treatment departments" aria-orientation="vertical" onKeyDown={onKey} className="relative flex flex-col">
+      {/* the bar that slides to the active department */}
+      <span
+        aria-hidden="true"
+        className="absolute left-0 top-0 h-[84px] w-1 rounded-full [transition:transform_.5s_cubic-bezier(.22,.7,.2,1),background_.4s]"
+        style={{ transform: `translateY(${active * 84}px)`, background: TINT[CATS[active].id] }}
+      />
+      {TABS.map((t, i) => {
+        const on = i === active;
+        return (
+          <button
+            key={t.label} ref={(el) => (refs.current[i] = el)} type="button" role="tab" id={`tt-${CATS[i].id}`}
+            aria-selected={on} aria-controls="treatments-panel" tabIndex={on ? 0 : -1} onClick={() => onChange(i)}
+            className={`group flex h-[84px] cursor-pointer items-center gap-4 border-0 bg-transparent pl-6 pr-2 text-left font-display text-[clamp(22px,2vw,30px)] font-normal leading-[1.1] transition-[opacity,transform] duration-300 ${focusRing}
+                        ${on ? 'translate-x-1 text-p9' : 'text-p9/45 hover:text-p9/80'}`}
+          >
+            <span className="font-body text-[12px] font-semibold tabular-nums tracking-[.08em]" style={{ color: on ? '#2f5a3f' : undefined }}>{pad2(i + 1)}</span>
+            <span className="flex-1">{t.label}</span>
+            <span className="grid h-7 min-w-7 place-items-center rounded-full px-2 font-body text-[12px] font-semibold text-p9 transition-opacity duration-300" style={{ background: TINT[CATS[i].id], opacity: on ? 1 : 0.55 }}>
+              {TREATMENTS_OF[CATS[i].id]?.length ?? 0}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ── one treatment: a photo card, the conditions it covers as chips on the photo. Lit when it holds the condition picked in the search. ── */
+function Card({ t, cat, hit, big, wide }) {
+  const lit = !!hit && matchConds(t, cat.conditions).has(hit);
+  const tint = TINT[cat.id];
+  return (
+    <article
+      className={`tr-card group relative isolate overflow-hidden rounded-[22px] bg-p9 text-white max-lg:w-[calc((100%-.75rem)/2)] max-lg:flex-none max-lg:snap-start max-lg:snap-always max-sm:w-[84%]
+                  ${big ? 'lg:col-span-2 lg:row-span-2' : wide ? 'lg:col-span-2' : ''} ${lit ? 'ring-4 ring-offset-2 ring-offset-transparent' : ''}`}
+      style={lit ? { '--tw-ring-color': tint } : undefined}
+    >
+      <img
+        src={`/assets/treatments/${t.img}`} alt="" loading="lazy" decoding="async" draggable="false"
+        className={`absolute inset-0 h-full w-full object-cover transition-transform duration-[900ms] ease-out group-hover:scale-[1.07] ${big ? '' : ''}`}
+      />
+      <span aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,16,13,.05)_25%,rgba(10,16,13,.82)_100%)]" />
+      <span aria-hidden="true" className="absolute left-0 top-0 h-1.5 w-full" style={{ background: tint }} />
+      <div className={`relative flex h-full flex-col justify-end ${big ? 'min-h-[340px] p-7 max-lg:min-h-[400px] max-sm:min-h-[340px] lg:min-h-[520px]' : 'min-h-[300px] p-5 max-lg:min-h-[400px] max-lg:p-6 max-sm:min-h-[340px] max-sm:p-5 lg:min-h-[250px]'}`}>
+        <h3 className={`m-0 mb-3 font-display font-normal leading-[1.1] ${big ? 'text-[clamp(26px,2.6vw,38px)]' : 'text-[clamp(22px,1.8vw,24px)] max-lg:text-[24px]'}`}>{t.title}</h3>
+        <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
+          {condsOf(t).slice(0, big ? 8 : 4).map((c, ci) => (
+            <li key={c} className={`rounded-full bg-white/18 px-2.5 py-1 text-[12.5px] leading-none backdrop-blur-sm max-lg:px-3 max-lg:py-1.5 max-lg:text-[13.5px] ${ci > 2 ? 'max-sm:hidden' : ''}`} style={{ background: 'rgba(255,255,255,.18)' }}>{c}</li>
+          ))}
+        </ul>
+      </div>
+    </article>
   );
 }
 
 export default function Treatments() {
-  const [cat, setCat] = useState(TREATMENT_CATEGORIES[0].id);
-  const [live, setLive] = useState(false);           // true once the section has scrolled into view
-  /* auto-advance only on pointer devices: on touch there is no hover to pause it, so it would
-     switch category while the visitor is swiping or reading the tiles */
-  const [auto, setAuto] = useState(() => canHover());
-  const [paused, setPaused] = useState(false);       // hovering / focusing the cards or the grid
-  const [edge, setEdge] = useState({ l: false, r: false });   // is there more category cards off-screen to the left / right?
-  const [reduced] = useState(() => prefersReducedMotion());
-  const [sectionRef, inView] = useInView({ threshold: 0.3 });
-  const panelRef = useRef(null);
-  const listRef = useRef(null);
-  const hintRef = useRef(null);
-  const tabRefs = useRef([]);
-  const barRefs = useRef([]);
-  const tweenRef = useRef(null);
-  const holdRef = useRef(false);
-  const wrapRefs = useRef([]);                       // one wrapper per category card (card + hover panel)
-  const toggleRef = useRef(null);                    // the "All conditions" button
-  const closeRef = useRef(null);                     // close button inside the conditions panel
-  const tipTimer = useRef(null);
-  const [tip, setTip] = useState(null);              // id of the category whose hover panel is open (mouse / keyboard focus)
-  const [detail, setDetail] = useState(null);       // the tile whose conditions are open in the panel (null = none)
-  const detailOpener = useRef(null);                 // the tile button to give focus back to
-  const detailClose = useRef(null);
-  const [listOpen, setListOpen] = useState(false);   // the full "All conditions" panel over the tiles (touch + keyboard + screen readers)
+  const root = useRef(null);
+  const strip = useRef(null);                                // the swipeable row of treatment cards (phones / tablets)
+  const [nav, setNav] = useState({ prev: false, next: false, at: 1, of: 1 });
+  const [idx, setIdx] = useState(0);
+  const [hit, setHit] = useState(null);                       // { ci, name } of a condition chosen in the search
+  const md = useMedia('(min-width: 768px)');
+  const lg = useMedia('(min-width: 1024px)');
+  const cat = CATS[idx];
+  const cards = TREATMENTS_OF[cat.id] || [];
+  const conds = cat.conditions || [];
+  const tint = TINT[cat.id];
 
-  const len = TREATMENT_CATEGORIES.length;
-  const idx = TREATMENT_CATEGORIES.findIndex((c) => c.id === cat);
-  const nextCat = TREATMENT_CATEGORIES[(idx + 1) % len];
-  const cycling = auto && live && !reduced;
-  const activeCat = TREATMENT_CATEGORIES[idx];
-  const hasList = Boolean(activeCat.conditions?.length);
+  const select = (i) => { setIdx(i); setHit((h) => (h && h.ci === i ? h : null)); };
+  const pick = (f) => { setIdx(f.ci); setHit(f); };
 
-  useEffect(() => { if (inView) setLive(true); }, [inView]);
-  useEffect(() => { if (panelRef.current) panelRef.current.scrollLeft = 0; }, [cat]);
-  useEffect(() => { setListOpen(false); setDetail(null); setTip(null); }, [cat]);
-
-  /* hover panel: a short delay on enter so sweeping the mouse across the row doesn't flicker */
-  const showTip = (id, delay = 0) => { clearTimeout(tipTimer.current); tipTimer.current = setTimeout(() => setTip(id), delay); };
-  const hideTip = (id) => { clearTimeout(tipTimer.current); setTip((t) => (t === id ? null : t)); };
-  useEffect(() => () => clearTimeout(tipTimer.current), []);
-
-  /* full panel: focus moves in when it opens, Escape closes it and returns focus to the button */
+  /* arrows + 'n of N' for the swipeable row of cards */
+  const measure = useCallback(() => {
+    const el = strip.current;
+    if (!el || !el.children.length) return;
+    const step = el.children.length > 1 ? el.children[1].offsetLeft - el.children[0].offsetLeft : el.clientWidth;
+    setNav({
+      prev: el.scrollLeft > 4, next: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
+      at: Math.min(el.children.length, Math.round(el.scrollLeft / step) + 1), of: el.children.length,
+    });
+  }, []);
   useEffect(() => {
-    if (!listOpen) return;
-    closeRef.current?.focus();
-    const onKey = (e) => { if (e.key === 'Escape') { setListOpen(false); toggleRef.current?.focus(); } };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [listOpen]);
-
-  /* tile panel: focus moves in when it opens, Escape closes it and returns focus to the tile */
-  const closeDetail = () => { setDetail(null); detailOpener.current?.focus(); };
-  const openDetail = (tile, el) => { detailOpener.current = el; setListOpen(false); setDetail(tile); };
-  useEffect(() => {
-    if (!detail) return;
-    detailClose.current?.focus();
-    const onKey = (e) => { if (e.key === 'Escape') { setDetail(null); detailOpener.current?.focus(); } };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [detail]);
-
-  /* ── scroll cues for the category row ── */
-  const updateEdge = () => {
-    const el = listRef.current;
-    if (!el) return;
-    const l = el.scrollLeft > 4;
-    const r = el.scrollLeft + el.clientWidth < el.scrollWidth - 4;
-    setEdge((e) => (e.l === l && e.r === r ? e : { l, r }));
+    const el = strip.current;
+    if (!el) return undefined;
+    measure();
+    el.addEventListener('scroll', measure, { passive: true });
+    window.addEventListener('resize', measure);
+    return () => { el.removeEventListener('scroll', measure); window.removeEventListener('resize', measure); };
+  }, [measure, idx, lg]);
+  useEffect(() => { strip.current?.scrollTo({ left: 0 }); }, [idx]);
+  const go = (dir) => {
+    const el = strip.current;
+    if (!el || !el.children.length) return;
+    const step = el.children.length > 1 ? el.children[1].offsetLeft - el.children[0].offsetLeft : el.clientWidth;
+    const per = Math.max(1, Math.round(el.clientWidth / step));
+    el.scrollBy({ left: dir * step * per, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
   };
-  useEffect(() => {
-    updateEdge();
-    window.addEventListener('resize', updateEdge);
-    return () => window.removeEventListener('resize', updateEdge);
+
+  /* the header and the department area ease in as the section arrives */
+  useLayoutEffect(() => {
+    if (prefersReducedMotion()) return undefined;
+    const ctx = gsap.context(() => {
+      gsap.from('.tr-head > *', { y: 20, opacity: 0, duration: 0.5, stagger: 0.06, ease: 'power3.out', scrollTrigger: { trigger: root.current, start: 'top 75%', once: true } });
+      gsap.from('.tr-rail, .tr-tabs', { y: 30, opacity: 0, duration: 0.8, ease: 'power3.out', scrollTrigger: { trigger: '.tr-body', start: 'top 85%', once: true } });
+    }, root);
+    return () => ctx.revert();
   }, []);
 
-  /* the arrow on the right edge gently nudges sideways while there's more to scroll to */
+  /* every time the department changes, its cards deal in */
   useEffect(() => {
-    const el = hintRef.current;
-    if (!el || reduced) return;
-    const tw = gsap.to(el, { x: 5, duration: 0.6, ease: 'sine.inOut', yoyo: true, repeat: -1 });
-    return () => { tw.kill(); gsap.set(el, { clearProps: 'x' }); };
-  }, [edge.r, reduced]);
-
-  /* one card-width step (arrow buttons) */
-  const step = (dir) => {
-    const el = listRef.current, card = tabRefs.current[0];
-    if (!el || !card) return;
-    el.scrollBy({ left: dir * (card.offsetWidth + 10), behavior: 'smooth' });
-  };
-
-  /* the row fades out on whichever side still has hidden cards */
-  const fadeMask = edge.l || edge.r
-    ? `linear-gradient(to right, transparent 0, #000 ${edge.l ? 36 : 0}px, #000 calc(100% - ${edge.r ? 56 : 0}px), transparent 100%)`
-    : undefined;
-
-  /* keep the active card in view when the card row scrolls sideways (phones).
-     Aligned to the start (16px = the row's side padding) so it matches the scroll-snap. */
-  useEffect(() => {
-    const list = listRef.current, el = wrapRefs.current[idx];
-    if (!list || !el || list.scrollWidth <= list.clientWidth) return;
-    list.scrollTo({ left: Math.max(0, el.offsetLeft - 16), behavior: 'smooth' });
+    if (prefersReducedMotion() || !root.current) return undefined;
+    const t = gsap.fromTo(root.current.querySelectorAll('.tr-card'), { y: 36, opacity: 0, scale: 0.97 }, { y: 0, opacity: 1, scale: 1, duration: 0.6, stagger: 0.07, ease: 'power3.out', clearProps: 'transform,opacity' });
+    return () => t.kill();
   }, [idx]);
-
-  /* the progress bar on the active card is the auto-advance timer: when it fills, move to the next category.
-     It holds while the cards/grid are hovered or while the section is off-screen. */
-  useEffect(() => {
-    holdRef.current = paused || listOpen || !!detail || !inView;
-    tweenRef.current?.paused(holdRef.current);
-  }, [paused, listOpen, detail, inView]);
-
-  useEffect(() => {
-    const bars = barRefs.current;
-    gsap.set(bars, { scaleX: (i) => (i === idx && !cycling ? 1 : 0), transformOrigin: 'left center' });
-    if (!cycling) return;
-    const tw = gsap.to(bars[idx], {
-      scaleX: 1, duration: CYCLE, ease: 'none',
-      onComplete: () => setCat(TREATMENT_CATEGORIES[(idx + 1) % len].id),
-    });
-    tw.paused(holdRef.current);
-    tweenRef.current = tw;
-    return () => tw.kill();
-  }, [idx, cycling, len]);
-
-  const choose = (id) => { setAuto(false); setCat(id); };
-
-  const visible = TREATMENTS.filter((t) => t.cat === cat);
-  const recipe = BENTO_LAYOUTS[visible.length] || [];
-  const mobileSpans = MOBILE_SPAN[visible.length] || [];
-
-  const onTabKey = (e, i) => {
-    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
-    e.preventDefault();
-    const j = (i + (e.key === 'ArrowRight' ? 1 : -1) + len) % len;
-    choose(TREATMENT_CATEGORIES[j].id);
-    tabRefs.current[j]?.focus();
-  };
 
   return (
     <section
-      id="treatments"
-      ref={sectionRef}
-      className="flex h-[100svh] min-h-[680px] scroll-mt-0 flex-col bg-transparent px-12 pb-7 pt-[88px] text-center
-                 max-lg:px-8
-                 max-sm:h-auto max-sm:min-h-0 max-sm:px-0 max-sm:pb-[22px] max-sm:pt-[84px]
-                 max-[375px]:pb-5 max-[375px]:pt-20"
+      id="treatments" ref={root}
+      className="relative scroll-mt-0 overflow-x-clip px-12 pb-24 pt-[96px] max-lg:px-8 max-sm:px-4 max-sm:pb-14 max-sm:pt-[84px]"
     >
-      <p className="eyebrow eyebrow-light !mb-2">Treatments</p>
-      <h2 className="mb-5 font-display text-[clamp(26px,3.2vw,40px)] font-normal text-p9 max-sm:mb-3 max-sm:px-4 max-sm:text-[clamp(18px,5.2vw,22px)] max-sm:leading-tight">
-        Gentle solutions for the body's toughest problems
-      </h2>
+      {/* a wash of the department's colour behind everything, changing with the tab */}
+      <span aria-hidden="true" className="pointer-events-none absolute left-1/2 top-24 -z-10 h-[520px] w-[min(1100px,90vw)] -translate-x-1/2 rounded-full opacity-35 blur-[110px] max-lg:h-[360px] max-lg:blur-[70px] [transition:background_.7s]" style={{ background: tint }} />
 
-      {/* category cards: photo, name, count — the active one carries the auto-advance progress bar.
-          On phones the row scrolls sideways, so it fades out at the edge that still has cards behind it
-          and shows a small arrow button (the right one nudges) — otherwise nobody knows it moves. */}
-      <div className="relative mx-auto mb-5 w-full max-w-[1120px] max-sm:mb-3">
-        <div
-          ref={listRef}
-          role="tablist" aria-label="Treatment categories"
-          onScroll={updateEdge}
-          onPointerEnter={() => setPaused(true)} onPointerLeave={() => setPaused(false)}
-          onFocus={() => setPaused(true)} onBlur={() => setPaused(false)}
-          style={fadeMask ? { WebkitMaskImage: fadeMask, maskImage: fadeMask } : undefined}
-          className="relative flex w-full gap-3
-                     max-sm:snap-x max-sm:scroll-px-4 max-sm:gap-2.5 max-sm:overflow-x-auto max-sm:px-4 max-sm:py-1 max-sm:[scrollbar-width:none] max-sm:[&::-webkit-scrollbar]:hidden"
-        >
-          {TREATMENT_CATEGORIES.map((c, i) => {
-            const on = c.id === cat;
-            const count = TREATMENTS.filter((t) => t.cat === c.id).length;
-            const cover = TREATMENTS.find((t) => t.cat === c.id)?.img;
-            const conds = c.conditions || [];
-            const showing = tip === c.id && conds.length > 0;
-            return (
-              <div
-                key={c.id} role="presentation"
-                ref={(el) => (wrapRefs.current[i] = el)}
-                onPointerEnter={(e) => { if (e.pointerType === 'mouse') showTip(c.id, 120); }}
-                onPointerLeave={(e) => { if (e.pointerType === 'mouse') hideTip(c.id); }}
-                onFocus={(e) => { if (e.target.matches?.(':focus-visible')) showTip(c.id); }}
-                onBlur={() => hideTip(c.id)}
-                onKeyDown={(e) => { if (e.key === 'Escape') hideTip(c.id); }}
-                className="relative min-w-0 flex-1 max-sm:flex-[0_0_62%] max-sm:snap-start"
-              >
-              <button
-                type="button" role="tab" id={`tab-${c.id}`}
-                ref={(el) => (tabRefs.current[i] = el)}
-                aria-selected={on} aria-controls="bentoPanel" tabIndex={on ? 0 : -1}
-                onClick={() => choose(c.id)}
-                onKeyDown={(e) => onTabKey(e, i)}
-                className={`group/card relative isolate h-[92px] w-full cursor-pointer overflow-hidden rounded-2xl border-0 bg-p7 p-0 text-left font-body
-                            [transition:transform_.35s_cubic-bezier(.34,1.2,.64,1),box-shadow_.3s_ease] motion-reduce:transition-none
-                            focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-accent
-                            max-sm:h-[84px]
-                            ${on ? '-translate-y-0.5 shadow-[0_0_0_2px_#dff0e6,0_18px_30px_-16px_rgba(20,33,26,.7)]' : 'shadow-[0_10px_20px_-14px_rgba(20,33,26,.5)] hover:-translate-y-0.5'}`}
-              >
-                {cover && (
-                  <img
-                    src={`/assets/treatments/${cover}`} alt="" loading="lazy" decoding="async"
-                    className={`absolute inset-0 -z-[2] h-full w-full object-cover [transition:transform_.8s_ease,filter_.4s_ease] motion-reduce:transition-none
-                                ${on ? 'scale-110' : 'saturate-[.7] group-hover/card:scale-105 group-hover/card:saturate-100'}`}
-                  />
-                )}
-                <span aria-hidden="true" className={`absolute inset-0 -z-[1] bg-gradient-to-t from-p9/90 via-p9/45 to-p9/10 [transition:opacity_.3s] ${on ? 'opacity-100' : 'opacity-90'}`} />
-                <span className="glass-chip absolute right-2.5 top-2.5 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums text-white">{conds.length || count}</span>
-                <span className={`absolute inset-x-3.5 bottom-3.5 font-display text-[clamp(14px,1.25vw,17px)] leading-[1.15] max-sm:text-[15px] max-[375px]:text-sm ${on ? 'text-white' : 'text-white/90'}`}>
-                  {c.label}
-                </span>
-                <span aria-hidden="true" className={`absolute inset-x-0 bottom-0 h-[3px] bg-white/25 [transition:opacity_.3s] ${on ? 'opacity-100' : 'opacity-0'}`}>
-                  <span ref={(el) => (barRefs.current[i] = el)} className="block h-full bg-accent-light" />
-                </span>
-              </button>
-
-              {/* hover / keyboard-focus panel (desktop & tablet with a mouse). Hidden from assistive tech on purpose:
-                  the same list is in the "All conditions" panel below, which everyone can reach. */}
-              {conds.length > 0 && (
-                <div
-                  aria-hidden="true"
-                  className={`absolute top-full z-30 w-[300px] pt-2 max-sm:hidden ${i >= len / 2 ? 'right-0' : 'left-0'}
-                              [transition:opacity_.18s_ease,transform_.18s_ease,visibility_.18s] motion-reduce:transition-none
-                              ${showing ? 'visible translate-y-0 opacity-100' : 'invisible -translate-y-1 opacity-0'}`}
-                >
-                  <div className="rounded-2xl bg-[radial-gradient(120%_90%_at_50%_0%,#254033_0%,#14211a_70%)] p-4 text-left shadow-[0_26px_50px_-24px_rgba(10,20,14,.8)]">
-                    <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[.1em] text-accent-light">{c.label}</p>
-                    <ConditionChips items={conds} />
-                    <p className="mt-3 text-[12px] leading-snug text-white/70">…and more. Ask us about any health concern.</p>
-                  </div>
-                </div>
-              )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* scroll arrows — phones only, shown only while there is more to reveal on that side
-            (aria-hidden: the tabs themselves are reachable with the arrow keys) */}
-        {edge.l && (
-          <button
-            type="button" aria-hidden="true" tabIndex={-1} onClick={() => step(-1)}
-            className="absolute inset-y-0 left-1.5 my-auto grid h-9 w-9 place-items-center rounded-full border border-line bg-white/90 text-p9 shadow-[0_8px_20px_-8px_rgba(33,37,41,.55)] sm:hidden"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M15 5l-7 7 7 7" /></svg>
-          </button>
-        )}
-        {edge.r && (
-          <button
-            ref={hintRef}
-            type="button" aria-hidden="true" tabIndex={-1} onClick={() => step(1)}
-            className="absolute inset-y-0 right-1.5 my-auto grid h-9 w-9 place-items-center rounded-full border border-line bg-white/90 text-p9 shadow-[0_8px_20px_-8px_rgba(33,37,41,.55)] sm:hidden"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5l7 7-7 7" /></svg>
-          </button>
-        )}
-      </div>
-
-      {/* key={cat} remounts the tiles so the entrance animation replays on every tab change.
-          Phones: a compact 2-column bento at a fixed height — every tile of the category is visible at once. */}
-      <div
-        key={cat}
-        id="bentoPanel" role="tabpanel" aria-labelledby={`tab-${cat}`} ref={panelRef}
-        onPointerEnter={() => setPaused(true)} onPointerLeave={() => setPaused(false)}
-        className={`relative mx-auto mb-[18px] grid min-h-0 w-full max-w-[1120px] flex-1 auto-rows-[minmax(0,1fr)] grid-cols-4 gap-4 text-left
-                    max-lg:grid-cols-2 max-lg:gap-3.5
-                    max-sm:mb-3.5 max-sm:h-[clamp(380px,60svh,520px)] max-sm:flex-none max-sm:gap-2 max-sm:px-4
-                    ${MOBILE_ROWS[visible.length] || ''}`}
-      >
-        {listOpen && hasList && !detail && (
-          <div
-            id="allConditions" role="region" aria-label={`All conditions: ${activeCat.label}`}
-            className="absolute inset-0 z-20 flex flex-col overflow-hidden rounded-3xl bg-[radial-gradient(120%_90%_at_50%_0%,#254033_0%,#14211a_70%)] p-7 max-sm:rounded-2xl max-sm:p-4"
-          >
-            <div className="mb-4 flex flex-none items-start justify-between gap-3">
-              <div>
-                <p className="mb-1 text-[11px] font-semibold uppercase tracking-[.1em] text-accent-light">All conditions we treat</p>
-                <h3 className="font-display text-[clamp(20px,2.4vw,30px)] font-normal leading-[1.15] text-white">{activeCat.label}</h3>
-              </div>
-              <button
-                ref={closeRef} type="button" onClick={() => { setListOpen(false); toggleRef.current?.focus(); }} aria-label="Close the list of conditions"
-                className="grid h-9 w-9 flex-none cursor-pointer place-items-center rounded-full border border-white/25 bg-white/10 text-white transition-colors duration-200 hover:bg-white hover:text-p9
-                           focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-light"
-              >
-                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-              <ConditionChips items={activeCat.conditions} />
-            </div>
-            <p className="mt-4 flex-none text-[13px] leading-snug text-white/75">
-              …and more. Don’t see your concern? Ask us at your consultation.{' '}
-              <a href="#booking" onClick={() => setListOpen(false)} className="font-medium text-accent-light underline underline-offset-2">Book now →</a>
+      <div className="mx-auto max-w-[1180px]">
+        <div className="tr-head mb-12 grid items-end gap-6 max-sm:mb-8 lg:grid-cols-12 lg:gap-x-10">
+          <div className="lg:col-span-8">
+            <p className="mb-4 text-[12px] font-semibold uppercase tracking-[.16em] text-accent">Treatments</p>
+            <h2 className="m-0 font-display text-[clamp(32px,4.6vw,68px)] font-normal leading-[1.04] tracking-[-.02em] text-p9">
+              Gentle solutions for the body’s <em className="text-accent">toughest</em> problems
+            </h2>
+            <p className="mt-5 max-w-[52ch] font-body text-[17px] leading-[1.6] text-p8">
+              {TOTAL} of the conditions we treat, by department. Don’t see yours? Ask us.
             </p>
           </div>
-        )}
-        {detail && (
-          <div
-            role="region" aria-label={`Treatments: ${detail.title}`}
-            className="absolute inset-0 z-20 flex flex-col overflow-hidden rounded-3xl bg-[radial-gradient(120%_90%_at_50%_0%,#254033_0%,#14211a_70%)] p-7 max-sm:rounded-2xl max-sm:p-4"
-          >
-            <div className="mb-4 flex flex-none items-start justify-between gap-3">
-              <div>
-                <p className="mb-1 text-[11px] font-semibold uppercase tracking-[.1em] text-accent-light">Treatments under</p>
-                <h3 className="font-display text-[clamp(20px,2.4vw,30px)] font-normal leading-[1.15] text-white">{detail.title}</h3>
-              </div>
-              <button
-                ref={detailClose} type="button" onClick={closeDetail} aria-label="Close"
-                className="grid h-9 w-9 flex-none cursor-pointer place-items-center rounded-full border border-white/25 bg-white/10 text-white transition-colors duration-200 hover:bg-white hover:text-p9
-                           focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-light"
-              >
-                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-              <ConditionChips items={itemsOf(detail)} />
-              <p className="mt-4 text-[13px] leading-snug text-white/75">…and more. Ask us about any health concern.</p>
-            </div>
-            <a
-              href="#booking" onClick={() => setDetail(null)}
-              className="mt-4 inline-flex flex-none items-center gap-2 self-start rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-p9 no-underline transition-colors duration-200 hover:bg-accent-light
-                         focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-light"
-            >
-              Book a consultation →
-            </a>
-          </div>
-        )}
-        {visible.map((t, i) => {
-          const span = mobileSpans[i] ?? '';
-          return (
-            <Tile
-              key={t.title} t={t} size={recipe[i] ?? ''} index={i} live={live} onOpen={openDetail}
-              mobileSpan={span}
-              mobileBig={span.includes('row-span-2') || visible.length === 2}
-            />
-          );
-        })}
-      </div>
+          <div className="lg:col-span-4"><Finder onPick={pick} /></div>
+        </div>
 
-      <div className="flex flex-none flex-wrap items-center justify-center gap-x-6 gap-y-2 px-4 max-sm:gap-x-4">
-        <button
-          type="button" onClick={() => choose(nextCat.id)}
-          className="cursor-pointer rounded-full border-[1.5px] border-p9/70 bg-white/70 px-5 py-2 font-body text-sm font-medium text-p9 transition-[background,color] duration-200 hover:bg-p9 hover:text-p1 max-sm:px-4 max-sm:text-[13px]"
-        >
-          Next<span className="max-[400px]:hidden">: {nextCat.label}</span> →
-        </button>
-        {hasList && (
-          <button
-            ref={toggleRef} type="button" onClick={() => { setDetail(null); setListOpen((o) => !o); }}
-            aria-expanded={listOpen} aria-controls={listOpen ? 'allConditions' : undefined}
-            className="cursor-pointer rounded-full border-[1.5px] border-p9 bg-p9 px-5 py-2 font-body text-sm font-medium text-p1 transition-colors duration-200 hover:bg-p8 max-sm:px-4 max-sm:text-[13px]"
-          >
-            {listOpen ? 'Hide conditions' : 'See all conditions'}
-          </button>
-        )}
-        <a href="#booking" className="link-arrow-light">Book a consultation →</a>
+        <div className="tr-body grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-14">
+          {/* the departments */}
+          {lg ? (
+            <div className="tr-rail lg:sticky lg:top-28 lg:self-start"><Rail active={idx} onChange={select} /></div>
+          ) : (
+            <div className="tr-tabs min-w-0"><ScrollTabs active={idx} onChange={select} /></div>
+          )}
+
+          <div className="min-w-0">
+            {/* phones / tablets: how many treatments, and the arrows that move the row */}
+            {!lg && cards.length > 1 && (
+              <div className="mb-3 flex items-center justify-between">
+                <p className="m-0 text-[13.5px] text-p7" aria-live="polite">{nav.at} of {nav.of} · {cat.label}</p>
+                <div className="flex gap-2">
+                  {[['Previous treatments', -1, 'M15 5l-7 7 7 7', nav.prev], ['Next treatments', 1, 'M9 5l7 7-7 7', nav.next]].map(([l, d, path, can]) => (
+                    <button key={l} type="button" aria-label={l} aria-disabled={!can || undefined} onClick={() => go(d)}
+                            className={`grid h-11 w-11 cursor-pointer place-items-center rounded-full border border-p9/15 bg-white text-p9 shadow-[0_8px_20px_-12px_rgba(33,37,41,.5)] transition-[opacity,background,color] hover:bg-p9 hover:text-white ${focusRing} ${can ? '' : 'opacity-35'}`}>
+                      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d={path} /></svg>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {/* the treatments in that department */}
+            <div
+              ref={strip} key={`panel-${cat.id}`} id="treatments-panel" role={lg ? 'region' : 'tabpanel'} aria-label={`${cat.label} treatments`} aria-labelledby={lg ? undefined : `tt-${cat.id}`}
+              tabIndex={lg ? undefined : 0}
+              className="flex snap-x scroll-px-8 gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden
+                         max-lg:-mx-8 max-lg:px-8 max-sm:-mx-4 max-sm:scroll-px-4 max-sm:px-4
+                         lg:grid lg:auto-rows-[minmax(250px,auto)] lg:grid-cols-3 lg:gap-4 lg:overflow-visible lg:pb-0"
+            >
+              {cards.map((t, i) => (
+                <Card
+                  key={t.title} t={t} cat={cat} hit={hit?.name}
+                  big={lg && cards.length === 3 && i === 0}                       /* 3 treatments: one large, two beside it */
+                  wide={lg && cards.length === 4 && (i === 0 || i === 3)}           /* 4: two wide ones on a diagonal */
+                />
+              ))}
+            </div>
+
+            {/* every condition in the department, as a cloud of chips */}
+            <details key={`list-${cat.id}`} open={md || !!hit} className="group mt-10 max-sm:mt-8">
+              <summary className={`flex min-h-11 cursor-pointer list-none items-center gap-3 font-display text-[clamp(19px,1.8vw,26px)] font-normal leading-tight text-p9 ${focusRing} [&::-webkit-details-marker]:hidden`}>
+                <span aria-hidden="true" className="h-3 w-3 flex-none rounded-full" style={{ background: tint }} />
+                <span className="min-w-0">All {conds.length} conditions in {cat.label}</span>
+                <span aria-hidden="true" className="font-body text-base text-p7 transition-transform duration-200 group-open:rotate-180">⌄</span>
+              </summary>
+              <ul className="m-0 mt-4 flex list-none flex-wrap gap-2 p-0 font-body">
+                {conds.map((x) => {
+                  const on = hit?.name === x;
+                  return (
+                    <li
+                      key={x}
+                      className={`rounded-full border px-3.5 py-1.5 text-[14.5px] leading-snug transition-colors duration-200 ${on ? 'border-transparent text-p9' : 'border-p9/15 bg-white/60 text-p9'}`}
+                      style={on ? { background: tint } : undefined}
+                    >
+                      {x}
+                    </li>
+                  );
+                })}
+              </ul>
+            </details>
+
+            <BookLink className="mt-10 max-sm:mt-8 max-sm:w-full max-sm:justify-center" />
+          </div>
+        </div>
       </div>
     </section>
   );

@@ -1,19 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { glideTo } from '../lib/utils';
+import DriftWall from './DriftWall';
 
-/* "On the day of the ceremony": ONE horizontal strip of photos, shown right below Highlights & updates.
-   Arrow buttons move it one image at a time (swipe / trackpad scroll works too, and snaps).
-   Every image is shown at its own proportions, nothing is cropped.
-   Clicking an image opens a larger view: Esc closes, ← → move, swipe on touch, focus returns to the image.
+/* "On the day of the ceremony": a slowly drifting, tilted wall of the ceremony photos, shown right below
+   Highlights & updates. The columns glide past in alternating directions; the pointer tilts the wall a little and
+   lifts the tile under it. Clicking a tile opens that photo full size, uncropped (the wall itself crops to fit its tiles).
+   The viewer: Esc closes, ← → move, swipe on touch.
+   The wall is decorative for keyboards and screen readers: the "View all photos" button opens the same viewer.
 
    Images live in  public/assets/ceremony/ceremony1.webp … ceremony9.webp
-   To change the number of photos, edit COUNT. To change the wording, edit EYEBROW / TITLE / INTRO.
+   To change the number of photos, edit COUNT. To change the wording, edit TITLE / INTRO.
    The opening-date line under the intro comes from OPENED_ISO (machine-readable date) / OPENED_LABEL (what is shown). */
 
-const COUNT = 9;
-const EYEBROW = 'Ceremony day';
+const COUNT = 7;
 const TITLE = 'On the day of the ceremony';
-const INTRO = 'A look back at the day, with family, friends and well-wishers. Use the arrows to browse.';
+const INTRO = 'A look back at the day, with family, friends and well-wishers.';
 
 const OPENED_ISO = '2025-11-02';
 const OPENED_LABEL = '2 November 2025';
@@ -22,20 +22,65 @@ const PHOTOS = Array.from({ length: COUNT }, (_, i) => ({
   src: `/assets/ceremony/ceremony${i + 1}.webp`,
   alt: `Ceremony photo ${i + 1} of ${COUNT}`,
 }));
+const ITEMS = PHOTOS.map((p, i) => ({ image: p.src, title: p.alt, index: i }));
 
-const Arrow = ({ dir, atEdge, onClick }) => (
-  <button
-    type="button" aria-label={dir < 0 ? 'Previous photo' : 'Next photo'} aria-disabled={atEdge || undefined} onClick={onClick}
-    className={`grid h-11 w-11 cursor-pointer place-items-center rounded-full border border-line bg-white/90 text-p9 shadow-[0_8px_20px_-8px_rgba(33,37,41,.5)]
-               [transition:opacity_.25s,background_.25s,transform_.3s_cubic-bezier(.34,1.4,.64,1)] hover:bg-accent-light active:scale-95
-               motion-reduce:transition-none ${atEdge ? 'opacity-35' : ''}
-               focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-accent`}
-  >
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d={dir < 0 ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'} />
-    </svg>
-  </button>
-);
+/* The wall is sized from the page width so its columns span the whole width, centred, whatever the screen:
+   tile width = page width / (columns × how much the 3D view enlarges the wall) - gap.
+   Columns: 3 on phones and small tablets (so tablet tiles stay big enough to see), 4 on tablets, 5 on laptops and up.
+   Phones held upright get portrait tiles; a phone on its side is short, so its wall is shorter too. */
+const VIEW_SCALE = 1.14;   // measured: the wall's 3D scale and depth together make the columns about 14% wider than their layout width
+function wallFor(w, h) {
+  const columns = w >= 1200 ? 5 : w >= 900 ? 4 : 3;
+  const gap = w >= 1024 ? 18 : w >= 640 ? 16 : 12;
+  const tileWidth = Math.round(w / (columns * VIEW_SCALE) - gap);
+  const portrait = w < 640 && h >= w;
+  const tileHeight = Math.round(tileWidth * (portrait ? 1.35 : 0.68));
+  const height =
+    h < 520 ? 'clamp(260px,74svh,440px)'            // phone on its side
+    : w >= 1024 ? 'clamp(440px,68svh,620px)'
+    : w >= 640 ? 'clamp(400px,60svh,560px)'
+    : 'clamp(360px,62svh,520px)';
+  return { columns, gap, tileWidth, tileHeight, height };
+}
+
+/* Soft edges for the wall: two plain masks on two plain wrapper elements (they multiply), instead of one combined mask on
+   the 3D element itself, which some browsers draw as an empty box. The wall fades out at both sides, at the top and at the
+   bottom, so no photo is ever cut off by a hard edge. */
+const FADE_SIDES = 'linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%)';
+const FADE_ENDS = 'linear-gradient(to bottom, transparent 0%, #000 40%, #000 80%, transparent 100%)';
+const mask = (img) => ({ WebkitMaskImage: img, maskImage: img });
+
+/* page size, kept up to date on resize and when a phone or tablet is rotated */
+function useViewport() {
+  const read = () => ({ w: window.innerWidth, h: window.innerHeight });
+  const [v, setV] = useState(read);
+  useEffect(() => {
+    let raf = 0;
+    const on = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => setV((o) => { const n = read(); return n.w === o.w && n.h === o.h ? o : n; }));
+    };
+    window.addEventListener('resize', on);
+    window.addEventListener('orientationchange', on);
+    return () => { window.removeEventListener('resize', on); window.removeEventListener('orientationchange', on); cancelAnimationFrame(raf); };
+  }, []);
+  return v;
+}
+
+/* true on a laptop or desktop with a mouse; false on phones and tablets (touch has no hover) */
+function useCanHover() {
+  const q = '(hover: hover) and (pointer: fine)';
+  const [on, setOn] = useState(() => window.matchMedia(q).matches);
+  useEffect(() => {
+    const m = window.matchMedia(q);
+    const f = () => setOn(m.matches);
+    m.addEventListener('change', f);
+    return () => m.removeEventListener('change', f);
+  }, []);
+  return on;
+}
+
+const focusRing = 'focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-accent';
 
 const lightboxBtn =
   'grid h-11 w-11 cursor-pointer place-items-center rounded-full border border-white/25 bg-white/10 text-white transition-colors hover:bg-white/25 ' +
@@ -43,47 +88,16 @@ const lightboxBtn =
 
 export default function Ceremony() {
   const [open, setOpen] = useState(-1);                 // photo in the larger view, -1 = closed
-  const [edge, setEdge] = useState({ start: true, end: false });
-  const strip = useRef(null);
-  const opener = useRef(null);                          // photo button to give focus back to
+  const opener = useRef(null);                          // the "View all photos" button, to give focus back to
   const closeBtn = useRef(null);
   const touchX = useRef(null);
 
-  /* ── the strip ── */
-  const updateEdge = useCallback(() => {
-    const el = strip.current;
-    if (!el) return;
-    const start = el.scrollLeft < 4;
-    const end = el.scrollLeft + el.clientWidth >= el.scrollWidth - 4;
-    setEdge((e) => (e.start === start && e.end === end ? e : { start, end }));
-  }, []);
-
-  useEffect(() => {
-    updateEdge();
-    const el = strip.current;
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateEdge) : null;
-    if (ro && el) { ro.observe(el); [...el.children].forEach((c) => ro.observe(c)); }   // photos load late and change the strip's width
-    window.addEventListener('resize', updateEdge);
-    return () => { ro?.disconnect(); window.removeEventListener('resize', updateEdge); };
-  }, [updateEdge]);
-
-  /* move to the next / previous photo (photos differ in width, so find the one nearest the left edge) */
-  const step = (dir) => {
-    const el = strip.current;
-    if (!el) return;
-    const items = [...el.children];
-    const base = items[0].offsetLeft;
-    const left = el.scrollLeft;
-    let cur = 0;
-    items.forEach((it, i) => {
-      if (Math.abs(it.offsetLeft - base - left) < Math.abs(items[cur].offsetLeft - base - left)) cur = i;
-    });
-    const target = Math.min(items.length - 1, Math.max(0, cur + dir));
-    glideTo(el, items[target].offsetLeft - base);
-  };
+  const { w: vw, h: vh } = useViewport();
+  const wall = wallFor(vw, vh);
+  const canHover = useCanHover();
 
   /* ── the larger view ── */
-  const close = useCallback(() => { setOpen(-1); opener.current?.focus(); }, []);
+  const close = useCallback(() => { setOpen(-1); opener.current?.focus(); opener.current = null; }, []);
   const go = useCallback((d) => setOpen((i) => (i < 0 ? i : (i + d + COUNT) % COUNT)), []);
 
   useEffect(() => {
@@ -114,74 +128,66 @@ export default function Ceremony() {
   return (
     <section id="ceremony" aria-labelledby="cm-title" className="relative px-12 py-[72px] max-lg:px-8 max-lg:py-14 max-sm:px-4 max-sm:py-10 max-[375px]:px-3">
       <div className="mx-auto max-w-[1120px]">
-        <header className="mb-8 flex items-end justify-between gap-6 max-sm:mb-6">
+        <header className="mb-4 flex flex-wrap items-end justify-between gap-x-6 gap-y-5 max-sm:mb-2">
           <div className="max-w-[560px]">
-            <p className="eyebrow eyebrow-light">{EYEBROW}</p>
             <h2 id="cm-title" className="mb-2 font-display text-[clamp(28px,3.4vw,44px)] font-normal leading-[1.1] text-p9">{TITLE}</h2>
             <p className="text-[15px] leading-[1.7] text-p7">{INTRO}</p>
-            <p className="mt-4 inline-flex items-center gap-2.5 rounded-full border border-line bg-paper py-1.5 pl-1.5 pr-4 text-[13.5px] text-p7 shadow-[0_8px_20px_-14px_rgba(33,37,41,.4)]">
-              <span aria-hidden="true" className="grid h-8 w-8 flex-none place-items-center rounded-full bg-accent-light text-accent">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3.5" y="5" width="17" height="15" rx="3" /><path d="M3.5 10h17M8 3v4M16 3v4" />
-                </svg>
-              </span>
-              <span>Clinic opened on <time dateTime={OPENED_ISO} className="font-semibold text-p9">{OPENED_LABEL}</time></span>
+            <p className="mt-3 text-[15px] leading-[1.7] text-p7">
+              Clinic opened on <time dateTime={OPENED_ISO} className="font-semibold text-p9">{OPENED_LABEL}</time>
             </p>
           </div>
-          <div className="flex flex-none gap-2.5">
-            <Arrow dir={-1} atEdge={edge.start} onClick={() => step(-1)} />
-            <Arrow dir={1} atEdge={edge.end} onClick={() => step(1)} />
-          </div>
+          <button
+            type="button" onClick={(e) => { opener.current = e.currentTarget; setOpen(0); }}
+            className={`inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-md border-0 bg-p9 px-6 py-3 font-body text-sm font-medium text-p1 transition-colors duration-200 hover:bg-p8 max-sm:w-full ${focusRing}`}
+          >
+            View all {COUNT} photos <span aria-hidden="true">→</span>
+          </button>
         </header>
 
-        <ul
-          ref={strip} onScroll={updateEdge} aria-label="Ceremony photos"
-          className="relative m-0 flex snap-x snap-mandatory list-none gap-4 overflow-x-auto p-0 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden max-sm:gap-3"
-        >
-          {PHOTOS.map((p, i) => (
-            <li key={p.src} className="flex-none snap-start">
-              <button
-                type="button" aria-label={`Open ${p.alt.toLowerCase()}`}
-                onClick={(e) => { opener.current = e.currentTarget; setOpen(i); }}
-                className="group block cursor-zoom-in overflow-hidden rounded-2xl border-0 bg-accent-light p-0
-                           focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-accent"
-              >
-                <img
-                  src={p.src} alt={p.alt} loading="lazy" decoding="async" draggable="false" onLoad={updateEdge}
-                  className="block h-[clamp(260px,52svh,460px)] min-w-[160px] w-auto max-w-[calc(100vw-40px)] object-contain transition-transform duration-[700ms] ease-[cubic-bezier(.22,.61,.36,1)] group-hover:scale-[1.03] motion-reduce:transition-none"
-                />
-              </button>
-            </li>
-          ))}
-        </ul>
+        {/* the wall is decorative (hidden from screen readers, out of the tab order); the button above does the same job */}
+        <div className="relative left-1/2 w-screen -translate-x-1/2 [touch-action:pan-y_pinch-zoom]" style={{ height: wall.height }}>   {/* full width of the page, so the wall bleeds off both sides */}
+          <div className="h-full" style={mask(FADE_SIDES)}>
+            <div className="h-full" style={mask(FADE_ENDS)}>
+              <DriftWall
+                items={ITEMS} mask={false}
+                columns={wall.columns} tileWidth={wall.tileWidth} tileHeight={wall.tileHeight} gap={wall.gap} radius={14}
+                tilt={16} turn={0} depth={120} speed={canHover ? 26 : 20} direction="up" variance={0.45}
+                parallax={canHover ? 0.5 : 0} pauseOnHover lift={56} overlayColor="#0d1511"
+                dim={canHover ? 0.95 : 0.99} idleOverlay={canHover ? 0.1 : 0.03}   /* touch never hovers a tile, so rest photos at full colour */
+                onSelect={(item) => { opener.current = null; setOpen(item.index); }}
+                tabbable={false}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       {open >= 0 && (
         <div
-          role="dialog" aria-modal="true" aria-label={`${cur.alt}`}
+          role="dialog" aria-modal="true" aria-label={cur.alt}
           onClick={close} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}
-          className="fixed inset-0 z-[200] grid place-items-center bg-[#0d1511]/90 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[200] grid place-items-center bg-[#0d1511]/90 p-4 backdrop-blur-sm overscroll-contain"
         >
           <img
             src={cur.src} alt={cur.alt} onClick={(e) => e.stopPropagation()}
             className="max-h-[86svh] max-w-full rounded-2xl object-contain shadow-[0_40px_80px_-30px_rgba(0,0,0,.7)]"
           />
 
-          <span className="absolute left-4 top-4 rounded-full bg-white/10 px-3.5 py-1.5 text-[13px] font-medium tabular-nums text-white backdrop-blur-sm" aria-hidden="true">
+          <span className="absolute left-[max(1rem,env(safe-area-inset-left))] top-[max(1rem,env(safe-area-inset-top))] rounded-full bg-white/10 px-3.5 py-1.5 text-[13px] font-medium tabular-nums text-white backdrop-blur-sm" aria-hidden="true">
             {open + 1} / {COUNT}
           </span>
 
           <button
             ref={closeBtn} type="button" aria-label="Close photo" onClick={(e) => { e.stopPropagation(); close(); }}
-            className={`${lightboxBtn} absolute right-4 top-4`}
+            className={`${lightboxBtn} absolute right-[max(1rem,env(safe-area-inset-right))] top-[max(1rem,env(safe-area-inset-top))]`}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
 
-          <button type="button" aria-label="Previous photo" onClick={(e) => { e.stopPropagation(); go(-1); }} className={`${lightboxBtn} absolute left-3 top-1/2 -translate-y-1/2`}>
+          <button type="button" aria-label="Previous photo" onClick={(e) => { e.stopPropagation(); go(-1); }} className={`${lightboxBtn} absolute left-[max(.75rem,env(safe-area-inset-left))] top-1/2 -translate-y-1/2`}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
           </button>
-          <button type="button" aria-label="Next photo" onClick={(e) => { e.stopPropagation(); go(1); }} className={`${lightboxBtn} absolute right-3 top-1/2 -translate-y-1/2`}>
+          <button type="button" aria-label="Next photo" onClick={(e) => { e.stopPropagation(); go(1); }} className={`${lightboxBtn} absolute right-[max(.75rem,env(safe-area-inset-right))] top-1/2 -translate-y-1/2`}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg>
           </button>
         </div>

@@ -1,66 +1,62 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { glideTo } from '../lib/utils';
+import AccordionGallery from './AccordionGallery';
 import { CLINIC_PHOTOS } from '../data/content';
 
-/* Highlights & updates: ONE horizontal strip of images.
-   Arrow buttons move it one image at a time (swiping / trackpad scroll works too, and snaps).
-   Every image is shown at its own proportions, nothing is cropped.
-   Clicking an image opens a larger view: Esc closes, ← → move, focus returns to the image. */
+/* Highlights & updates: an accordion of photos. Hover (or tap / focus) a photo and it opens up while the others
+   narrow and fade to grey. Clicking the open photo shows it full size, uncropped: Esc closes, ← → move,
+   focus returns to the photo.
+   Data lives in content.js → CLINIC_PHOTOS: { src, alt }. Add an optional `caption` to any photo and its text appears
+   on the photo while it is open (until then no text is printed on the photos, since `alt` is only a description).
+
+   MANY PHOTOS: the accordion shows PER photos at a time (4 on phones, 5 elsewhere) so every panel stays wide enough to read.
+   When there are more than that, arrows (and a "1–5 of 9" readout) page through them; the accordion itself is unchanged.
+   With PER photos or fewer there are no arrows. The arrows sit at the left and right ends of the accordion (below it on phones). */
 
 const N = CLINIC_PHOTOS.length;
 
-const Arrow = ({ dir, atEdge, onClick }) => (
+const ITEMS = CLINIC_PHOTOS.map((p) => ({ image: p.src, alt: p.alt, label: p.caption || p.alt }));
+const HAS_CAPTIONS = CLINIC_PHOTOS.some((p) => p.caption);
+
+const PER_PHONE = 4, PER_WIDE = 5;   // photos in the accordion at once
+const NARROW = '(max-width: 520px)';   // the accordion stacks vertically at this width (same breakpoint as inside AccordionGallery)
+const CAN_HOVER = '(hover: hover)';   // touch screens fire a fake hover on tap, so they use tap-to-open instead
+
+function useMedia(query) {
+  const [on, setOn] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const m = window.matchMedia(query);
+    const f = () => setOn(m.matches);
+    f();
+    m.addEventListener('change', f);
+    return () => m.removeEventListener('change', f);
+  }, [query]);
+  return on;
+}
+
+/* page arrow: sits at the left / right end of the accordion (below it on phones) */
+const PageBtn = ({ label, path, can, onClick }) => (
   <button
-    type="button" aria-label={dir < 0 ? 'Previous image' : 'Next image'} aria-disabled={atEdge || undefined} onClick={onClick}
-    className={`grid h-11 w-11 cursor-pointer place-items-center rounded-full border border-line bg-white/90 text-p9 shadow-[0_8px_20px_-8px_rgba(33,37,41,.5)]
-               [transition:opacity_.25s,background_.25s,transform_.3s_cubic-bezier(.34,1.4,.64,1)] hover:bg-accent-light active:scale-95
-               motion-reduce:transition-none ${atEdge ? 'opacity-35' : ''}
-               focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-accent`}
+    type="button" aria-label={label} aria-disabled={!can || undefined} onClick={() => can && onClick()}
+    className={`grid h-12 w-12 flex-none cursor-pointer place-items-center rounded-full border border-p9/15 bg-white text-p9 shadow-[0_8px_20px_-12px_rgba(33,37,41,.5)] transition-[opacity,background,color] duration-200 hover:bg-p9 hover:text-white max-sm:order-2
+                focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-accent ${can ? '' : 'opacity-35'}`}
   >
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-      <path d={dir < 0 ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'} />
-    </svg>
+    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d={path} /></svg>
   </button>
 );
 
 export default function Gallery() {
-  const [open, setOpen] = useState(-1);                 // image in the larger view, -1 = closed
-  const [edge, setEdge] = useState({ start: true, end: false });
-  const strip = useRef(null);
-  const opener = useRef(null);                          // image button to give focus back to
+  const [open, setOpen] = useState(-1);                 // photo in the full view, -1 = closed
+  const opener = useRef(null);                          // panel to give focus back to
   const closeBtn = useRef(null);
+  const narrow = useMedia(NARROW);
+  const canHover = useMedia(CAN_HOVER);
+  const per = narrow ? PER_PHONE : PER_WIDE;
+  const [start, setStart] = useState(0);                // index of the first photo in the accordion
+  const first = Math.min(start, Math.max(0, N - per));  // (re-clamped if the screen size changes)
+  const shown = ITEMS.slice(first, first + per);
+  const paged = N > per;
+  const page = (d) => setStart(Math.min(Math.max(0, N - per), Math.max(0, first + d * per)));
 
-  /* ── the strip ── */
-  const updateEdge = useCallback(() => {
-    const el = strip.current;
-    if (!el) return;
-    const start = el.scrollLeft < 4;
-    const end = el.scrollLeft + el.clientWidth >= el.scrollWidth - 4;
-    setEdge((e) => (e.start === start && e.end === end ? e : { start, end }));
-  }, []);
-
-  useEffect(() => {
-    updateEdge();
-    const el = strip.current;
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateEdge) : null;
-    if (ro && el) { ro.observe(el); [...el.children].forEach((c) => ro.observe(c)); }   // photos load late and change the strip's width
-    window.addEventListener('resize', updateEdge);
-    return () => { ro?.disconnect(); window.removeEventListener('resize', updateEdge); };
-  }, [updateEdge]);
-
-  /* move to the next / previous image (images differ in width, so find the one nearest the left edge) */
-  const step = (dir) => {
-    const el = strip.current;
-    if (!el) return;
-    const items = [...el.children];
-    const left = el.scrollLeft;
-    let cur = 0;
-    items.forEach((it, i) => { if (Math.abs(it.offsetLeft - items[0].offsetLeft - left) < Math.abs(items[cur].offsetLeft - items[0].offsetLeft - left)) cur = i; });
-    const target = Math.min(items.length - 1, Math.max(0, cur + dir));
-    glideTo(el, items[target].offsetLeft - items[0].offsetLeft);
-  };
-
-  /* ── the larger view ── */
   const close = useCallback(() => { setOpen(-1); opener.current?.focus(); }, []);
   const go = useCallback((d) => setOpen((i) => (i < 0 ? i : (i + d + N) % N)), []);
 
@@ -84,42 +80,41 @@ export default function Gallery() {
   return (
     <section id="gallery" aria-labelledby="gl-title" className="relative px-12 py-[72px] max-lg:px-8 max-lg:py-14 max-sm:px-4 max-sm:py-10 max-[375px]:px-3">
       <div className="mx-auto max-w-[1120px]">
-        <header className="mb-8 flex items-end justify-between gap-6 max-sm:mb-6">
+        <header className="mb-8 flex flex-wrap items-end justify-between gap-x-8 gap-y-4 max-sm:mb-6">
           <div className="max-w-[560px]">
-            <h2 id="gl-title" className="mb-2 font-display text-[clamp(28px,3.4vw,44px)] font-normal leading-[1.1] text-p9">Highlights &amp; updates</h2>
-            <p className="text-[15px] leading-[1.7] text-p7">Moments and updates from Dr. Thaj Homoeo Clinic. Use the arrows to browse.</p>
+          <h2 id="gl-title" className="mb-2 font-display text-[clamp(28px,3.4vw,44px)] font-normal leading-[1.1] text-p9">Highlights &amp; updates</h2>
+          <p className="text-[15px] leading-[1.7] text-p7">
+            Moments and updates from Dr. Thaj Homoeo Clinic. Hover or tap a photo to open it up, then click or tap it again to see it full size.
+          </p>
           </div>
-          <div className="flex flex-none gap-2.5">
-            <Arrow dir={-1} atEdge={edge.start} onClick={() => step(-1)} />
-            <Arrow dir={1} atEdge={edge.end} onClick={() => step(1)} />
-          </div>
+          {paged && (
+            <p className="m-0 text-[13.5px] tabular-nums text-p7" aria-live="polite">{first + 1}–{first + shown.length} of {N}</p>
+          )}
         </header>
 
-        <ul
-          ref={strip} onScroll={updateEdge} aria-label="Highlights and updates"
-          className="relative m-0 flex snap-x snap-mandatory list-none gap-4 overflow-x-auto p-0 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden max-sm:gap-3"
-        >
-          {CLINIC_PHOTOS.map((p, i) => (
-            <li key={p.src} className="flex-none snap-start">
-              <button
-                type="button" aria-label={`Open image: ${p.alt}`}
-                onClick={(e) => { opener.current = e.currentTarget; setOpen(i); }}
-                className="group block cursor-zoom-in overflow-hidden rounded-2xl border-0 bg-accent-light p-0
-                           focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-accent"
-              >
-                <img
-                  src={p.src} alt={p.alt} loading="lazy" decoding="async" draggable="false" onLoad={updateEdge}
-                  className="block h-[clamp(260px,52svh,460px)] w-auto max-w-[calc(100vw-40px)] object-contain transition-transform duration-[700ms] ease-[cubic-bezier(.22,.61,.36,1)] group-hover:scale-[1.03] motion-reduce:transition-none"
-                />
-              </button>
-            </li>
-          ))}
-        </ul>
+        <div className="flex items-center gap-3 max-sm:flex-wrap max-sm:justify-center max-sm:gap-4">
+          {paged && <PageBtn label="Previous photos" path="M15 5l-7 7 7 7" can={first > 0} onClick={() => page(-1)} />}
+          <div className="min-w-0 flex-1 max-sm:order-1 max-sm:basis-full">
+            <AccordionGallery
+              key={`${first}-${per}`}
+              items={shown}
+              defaultIndex={Math.floor(shown.length / 2)}
+              onOpen={(i, e) => { opener.current = e.currentTarget; setOpen(first + i); }}
+              trigger={canHover ? 'hover' : 'click'}
+              orientation={narrow ? 'vertical' : 'horizontal'}
+              height={narrow ? '560px' : 'clamp(380px,58svh,500px)'}
+              gap={12} radius={16} expandRatio={0.52} fit="cover"
+              overlayColor="#0d1511" accentColor="#ffffff" textColor="#ffffff"
+              showLabels={HAS_CAPTIONS} grayscale tilt={6} parallax={0.4}
+            />
+          </div>
+          {paged && <PageBtn label="Next photos" path="M9 5l7 7-7 7" can={first + per < N} onClick={() => page(1)} />}
+        </div>
       </div>
 
       {open >= 0 && (
         <div
-          role="dialog" aria-modal="true" aria-label={cur.alt}
+          role="dialog" aria-modal="true" aria-label={cur.caption || cur.alt}
           onClick={close}
           className="fixed inset-0 z-[200] grid place-items-center bg-[#0d1511]/90 p-4 backdrop-blur-sm"
         >

@@ -13,6 +13,7 @@ if (SAVED) skipIntro();   // the hero is off-screen after a reload mid-page: no 
 
 /* Only the navbar + hero are in the first download. Every section below is its own chunk,
    fetched and mounted AFTER the hero has painted (see <Deferred /> below). */
+const ClinicAdmin = lazy(() => import('./components/ClinicAdmin'));
 const AboutStory = lazy(() => import('./components/AboutStory'));
 const Treatments = lazy(() => import('./components/Treatments'));
 const DoctorProfile = lazy(() => import('./components/DoctorProfile'));
@@ -29,17 +30,18 @@ const FloatingContact = lazy(() => import('./components/FloatingContact'));
 
 /* page order, top to bottom: [component, placeholder height while it is not loaded yet, the section's element id] */
 const MAIN_SECTIONS = [
-  [AboutStory, '80svh', 'about'],
-  [Treatments, '100svh', 'treatments'],
-  [DoctorProfile, '75svh', 'doctors'],
+  [DoctorProfile, '130svh', 'doctors'],
+  [ClinicAdmin, '220svh', 'admin'],
+  [AboutStory, '280svh', 'about'],
+  [Treatments, '130svh', 'treatments'],
+  [Booking, '80svh', 'booking'],
   [Connect, '80svh', 'testimonials'],
-  [PatientResults, '70svh', 'results'],
-  [Testimonials, '60svh', 'patient-voices'],
+  [PatientResults, '80svh', 'results'],
+  [Testimonials, '110svh', 'patient-voices'],
   [Gallery, '70svh', 'gallery'],
   [Ceremony, '70svh', 'ceremony'],
   [Pharmacy, '60svh', 'pharmacy'],
   [FAQ, '60svh', 'faq'],
-  [Booking, '80svh', 'booking'],
 ];
 const FOOTER_INDEX = MAIN_SECTIONS.length;
 const FLOAT_INDEX = FOOTER_INDEX + 1;

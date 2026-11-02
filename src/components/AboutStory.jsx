@@ -1,170 +1,373 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { gsap, ScrollTrigger } from '../lib/gsap';
 import { ABOUT_STORY } from '../data/content';
 import { prefersReducedMotion } from '../lib/utils';
+import FlexCarousel from './FlexCarousel';
 
-/* Structure 1 — sticky story.
-   Left: one arch-shaped photo stays pinned (CSS `position: sticky`, no GSAP pin).
-   Right: heading + a stack of cards. The card crossing 60% of the viewport
-   becomes `active`; that single index drives the photo, counter, caption and
-   progress bars. Mobile / tablet: the photo stays pinned under the navbar at the photo's OWN
-   proportions (read from the first image), so about 90% of the picture is visible (SHOWN below).
-   The frame's height is capped to a share of the screen so the cards stay visible.
+/* About — full-width scrollytelling Flex Carousel, responsive for phones, tablets and desktops.
+   The <section> is a tall scroll track. Inside it one `sticky` panel, exactly one viewport high, holds the heading, the
+   carousel and two cards. The carousel runs edge to edge on the page itself.
 
-   NOTE: no `overflow-hidden` on <section> — it would break `position: sticky`.
-   `overflow-x-clip` hides the orbs without creating a scroll container. */
+   FLOW: scroll progress is turned into a continuous position (photo 0 … photo N-1) and handed straight to the carousel
+   (controlRef.scrub), so the row moves exactly as far as you scroll, with a little spring for smoothness.
 
-const N = ABOUT_STORY.length;
-const SHOWN = 0.9;   // share of the photo's height that stays visible on mobile / tablet (1 = whole photo, lower = tighter crop)
+   CARDS: the TOP card is the chapter heading, the BOTTOM card its description. A chapter can own several photos, so the
+   cards change only when the centred photo belongs to a different chapter (8 photos / 4 chapters: every 2 photos).
+   In content.js → ABOUT_STORY, group photos into a chapter in either of these ways:
+     { title, text, caption, imgs: ['a.jpg', 'b.jpg'] }                       one entry, several photos
+     two entries that share the same `title` (and `text`)                      consecutive entries with an equal title merge
+   `cta: true` on a chapter adds the "Book appointment" button to its description card.
+
+   PHONES (< 640px) get a plain horizontal strip instead (no pinning, no WebGL): one swipeable card per photo with its chapter's
+   heading and text under the picture, a counter, dots, arrows and a "swipe" hint. Same story, same order, same Book button.
+
+   DEVICES (see useLayout):
+     phones  (< 640px)    the horizontal strip described above
+     (the pinned layout, if it were used on a phone, would have: smaller photo row, tighter gap, compact cards)
+     tablets (640–1023px) mid-size row; portrait and landscape tuned separately
+     desktop (1024px+)    full size
+   The pinned scroll story is replaced by a plain grid (one tile per chapter) when WebGL2 is missing, data-saver is on,
+   memory is 2 GB or less, or the screen is very short (landscape phones, under 520px high), where the cards can't fit.
+
+   NOTE: no `overflow-hidden` on <section> — it would break `position: sticky`. */
+
+ScrollTrigger.config({ ignoreMobileResize: true });   // the mobile URL bar showing / hiding must not re-measure the track
+
+const DWELL = 18;   // svh the last photo stays put before the page moves on
+const TABS = ['#c8553d', '#a9b98a', '#e3a847', '#7fb09a'];   // card tab colours; the bottom card uses the colour two along
+const DEEP = '#2f5a3f';
 const pad = (i) => String(i + 1).padStart(2, '0');
+
+const STYLE = `
+@keyframes as-card-in { from { opacity: 0; transform: translateY(var(--dy, 14px)); } to { opacity: 1; transform: translateY(0); } }
+`;
+
+/* ABOUT_STORY → chapters (text) + photos (each knows its chapter) */
+function buildStory(story) {
+  const chapters = [];
+  const photos = [];
+  story.forEach((s) => {
+    let ci = chapters.length - 1;
+    if (ci < 0 || chapters[ci].title !== s.title) {
+      chapters.push({ title: s.title, text: s.text, cta: !!s.cta });
+      ci += 1;
+    } else if (s.cta) {
+      chapters[ci].cta = true;
+    }
+    [].concat(s.imgs ?? s.img ?? []).forEach((src) => photos.push({ src, alt: s.caption || s.title, title: s.title, chapter: ci }));
+  });
+  return { chapters, photos };
+}
+
+const hasWebGL2 = () => {
+  try {
+    const gl = document.createElement('canvas').getContext('webgl2');
+    gl?.getExtension('WEBGL_lose_context')?.loseContext();
+    return !!gl;
+  } catch {
+    return false;
+  }
+};
+
+/* data-saver on, or 2 GB of memory or less: skip the WebGL story */
+const lowPower = () => !!(navigator.connection?.saveData || (navigator.deviceMemory && navigator.deviceMemory <= 2));
+
+/* photo row height (fraction of the stage), gap between photos (px) and scroll per photo (svh), by device.
+   `step` is how far you scroll for one photo: smaller = the carousel moves faster for the same scroll */
+function readLayout() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  if (w < 640) return { cardHeight: 0.4, gap: 10, step: 28, phone: true };
+  if (w < 1024) return { cardHeight: h > w ? 0.44 : 0.46, gap: 12, step: 26, phone: false };
+  return { cardHeight: h < 700 ? 0.42 : 0.48, gap: 14, step: 24, phone: false };
+}
+function useLayout() {
+  const [layout, setLayout] = useState(readLayout);
+  useEffect(() => {
+    const on = () => setLayout((prev) => {
+      const next = readLayout();
+      return prev.cardHeight === next.cardHeight && prev.gap === next.gap && prev.step === next.step ? prev : next;
+    });
+    window.addEventListener('resize', on);
+    window.addEventListener('orientationchange', on);
+    return () => { window.removeEventListener('resize', on); window.removeEventListener('orientationchange', on); };
+  }, []);
+  return layout;
+}
+
+function useMedia(query) {
+  const [on, setOn] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const fn = () => setOn(mq.matches);
+    mq.addEventListener('change', fn);
+    return () => mq.removeEventListener('change', fn);
+  }, [query]);
+  return on;
+}
+
+/* `shown` trails `active` by `ms` so the old text can fade out before the new one rises in */
+function useSwap(active, ms = 220) {
+  const [shown, setShown] = useState(active);
+  const [leaving, setLeaving] = useState(false);
+  useEffect(() => {
+    if (active === shown) { setLeaving(false); return undefined; }
+    setLeaving(true);
+    const t = setTimeout(() => { setShown(active); setLeaving(false); }, ms);
+    return () => clearTimeout(t);
+  }, [active, shown, ms]);
+  return [shown, leaving];
+}
+
+/* One card, horizontally centred (inset-x-0 + mx-auto, no transform, so GSAP can animate it freely).
+   Deep green with white text so it reads on the light page. `tab` is the coloured plate behind its left edge. */
+function StoryCard({ active, dir, tab, delay = 0, style, className = '', count, children }) {
+  const [shown, leaving] = useSwap(active);
+  return (
+    <div className={`as-story-card pointer-events-none absolute inset-x-0 z-10 mx-auto ${className}`} style={style}>
+      <div className="relative isolate">
+        <span
+          aria-hidden="true"
+          className="absolute -left-4 top-[24%] -z-10 h-[52%] w-10 rounded-2xl [transition:background-color_.5s_ease] motion-reduce:transition-none sm:-left-7 sm:w-14"
+          style={{ backgroundColor: tab }}
+        />
+        {/* the card never changes size: every chapter's text is laid in the same grid cell (the hidden ones are only there to
+            hold the height of the tallest), and only the visible chapter's text moves and fades */}
+        <div className="grid overflow-hidden rounded-[18px] px-4 py-3 text-white sm:rounded-[26px] sm:px-5 sm:py-4 lg:px-8 lg:py-5" style={{ backgroundColor: DEEP }}>
+          {Array.from({ length: count }, (_, c) => (
+            <div
+              key={c === shown ? `on-${shown}` : c}
+              aria-hidden={c !== shown || undefined}
+              className={`[grid-area:1/1] ${c === shown ? 'animate-[as-card-in_.55s_cubic-bezier(.22,1,.36,1)_backwards] [transition:opacity_.2s_ease,transform_.2s_ease] motion-reduce:animate-none motion-reduce:transition-none' : 'invisible'}`}
+              style={c === shown ? {
+                '--dy': `${dir * 16}px`,
+                animationDelay: `${delay}ms`,
+                transitionDelay: leaving ? `${delay}ms` : '0ms',
+                opacity: leaving ? 0 : 1,
+                transform: leaving ? `translateY(${-dir * 10}px)` : 'none',
+              } : undefined}
+            >
+              {children(c)}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function AboutStory() {
   const section = useRef(null);
-  const [active, setActive] = useState(0);
-  const [ratio, setRatio] = useState(4 / 3);   // width / height of the photos, measured from the first one (used below lg only)
-  const measure = (img) => {
-    if (img?.naturalWidth && img?.naturalHeight) setRatio(Math.min(1.8, Math.max(0.55, img.naturalWidth / img.naturalHeight)));
-  };
-  useEffect(() => { measure(section.current?.querySelector('img')); }, []);   // first photo may already be loaded
+  const trigger = useRef(null);
+  const ctl = useRef(null);                 // FlexCarousel's controlRef: { scrub(x) }
+  const lastChapter = useRef(0);
+  const [active, setActive] = useState(0);          // photo centred in the carousel (counter, dots)
+  const [chapter, setChapter] = useState(0);        // chapter of that photo (cards)
+  const [dir, setDir] = useState(1);                // 1 = moving forward (scrolling down), -1 = back
+  const [canGL] = useState(() => hasWebGL2() && !lowPower());
+  const short = useMedia('(max-height: 519px)');    // landscape phones: no room for the pinned layout
+  const strip = useMedia('(max-width: 639px)');     // phones: a plain horizontal row of photos (no WebGL) instead of the FlexCarousel
+  const pinned = !short && (strip || canGL);        // phones always get the pinned story (their strip needs no WebGL)
+  const stripRef = useRef(null);                    // phones: the row of photos that the scroll slides sideways
+  const { cardHeight, gap, step, phone } = useLayout();
+
+  const { chapters, photos } = useMemo(() => buildStory(ABOUT_STORY), []);
+  const n = photos.length;
+  const items = useMemo(() => photos.map((p) => ({ src: p.src, alt: p.alt, title: p.title })), [photos]);
+  const span = (n - 1) * step + DWELL;              // svh of the whole track (minus the one pinned screen)
+  const edge = 50 + cardHeight * 50;                // % of stage height where the photo row's top / bottom edge sits
+
+  const onChange = useCallback((i) => {
+    setActive(i);
+    const c = photos[i]?.chapter ?? 0;
+    if (c === lastChapter.current) return;
+    setDir(c > lastChapter.current ? 1 : -1);
+    lastChapter.current = c;
+    setChapter(c);
+  }, [photos]);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
-      section.current.querySelectorAll('.as-card').forEach((card, i) => {
-        ScrollTrigger.create({
-          trigger: card, start: 'top 60%', end: 'bottom 60%',
-          onToggle: (self) => { if (self.isActive) setActive(i); },
+      /* scroll progress → continuous carousel position, written straight into the carousel (no React render per scroll) */
+      if (pinned) {
+        const push = (self) => {
+          const v = Math.min(n - 1, (self.progress * span) / step);          // photo position, 0 … n-1
+          const row = stripRef.current;
+          if (row) {                                                          // phones: slide the row so photo v is centred
+            const card = row.firstElementChild;
+            const cw = card ? card.offsetWidth : 0;
+            gsap.set(row, { x: row.parentElement.clientWidth / 2 - (v * (cw + gap) + cw / 2) });
+            onChange(Math.round(v));
+          } else {
+            ctl.current?.scrub(v);
+          }
+        };
+        trigger.current = ScrollTrigger.create({
+          trigger: section.current, start: 'top top', end: 'bottom bottom',
+          onUpdate: push, onRefresh: push,
         });
-      });
-      if (!prefersReducedMotion()) {
-        gsap.from('.as-head > *', {
-          y: 20, opacity: 0, duration: 0.8, stagger: 0.1, ease: 'power3.out',
-          scrollTrigger: { trigger: '.as-head', start: 'top 85%', once: true },
-        });
-
-        /* logo card — two-layer parallax:
-           1) the whole card drifts a little against the scroll, so it moves at a different speed to the text cards
-           2) the photo inside slides the other way behind the card's rounded window */
-        const logoScroll = { trigger: '.as-logo', start: 'top bottom', end: 'bottom top', scrub: true };
-        gsap.from('.as-logo-frame', {
-          y: 36, opacity: 0, scale: 0.97, duration: 1, ease: 'power3.out',
-          scrollTrigger: { trigger: '.as-logo', start: 'top 88%', once: true },
-        });
-        gsap.fromTo('.as-logo', { y: 28 }, { y: -28, ease: 'none', scrollTrigger: logoScroll });
-        gsap.fromTo('.as-logo-img', { yPercent: -7 }, { yPercent: 7, ease: 'none', scrollTrigger: logoScroll });
+        push(trigger.current);
       }
+      if (prefersReducedMotion()) return;
+
+      gsap.timeline({ defaults: { ease: 'power3.out' }, scrollTrigger: { trigger: section.current, start: 'top 60%', once: true } })
+        .from('.as-line > span', { yPercent: 110, duration: 0.9, stagger: 0.12 })
+        .from('.as-intro', { y: 18, opacity: 0, duration: 0.7 }, '-=0.5')
+        .from('.as-story-card', { y: 28, opacity: 0, duration: 0.8, stagger: 0.15 }, '-=0.2');
     }, section);
     return () => ctx.revert();
-  }, []);
+  }, [pinned, n, span, step, strip, gap, onChange]);
+
+  /* the dots scroll to the spot where their photo is centred */
+  const jump = (i) => {
+    const st = trigger.current;
+    if (!st) return;
+    window.scrollTo({ top: st.start + ((i * step) / span) * (st.end - st.start), behavior: 'smooth' });
+  };
+
+  const head = (
+    <header className="as-head grid items-end gap-3 lg:grid-cols-[1.5fr_.7fr] lg:gap-14">
+      <h2
+        id="as-title"
+        className="font-display text-[clamp(26px,min(4.6vw,7.2svh),68px)] font-normal leading-[1.04] tracking-[-.02em] text-p9"
+      >
+        <span className="as-line block overflow-hidden pb-[.12em] -mb-[.12em]"><span className="block">Care that sees</span></span>
+        <span className="as-line block overflow-hidden pb-[.12em] -mb-[.12em]"><span className="block">the whole person</span></span>
+      </h2>
+      <p className="as-intro max-w-[400px] text-[15px] leading-[1.6] text-p9 max-sm:hidden [@media(max-height:700px)]:hidden lg:pb-2">
+        Dr. Thaj Homoeo Clinic in Minjur, Chennai, pairs homoeopathic medicine with time to listen.
+      </p>
+    </header>
+  );
 
   return (
     <section
       id="about" ref={section} aria-labelledby="as-title"
-      className="relative mx-2.5 mt-8 overflow-x-clip rounded-[18px] border border-accent/20 bg-[linear-gradient(160deg,#f7f9f5_0%,#e7efe5_100%)] px-12 py-[100px]
-                 max-lg:px-8 max-lg:py-[72px] max-sm:px-4 max-sm:py-14 max-[375px]:px-3 max-[320px]:px-2.5"
+      className="relative text-p9"
+      style={pinned ? { height: `${100 + span}svh` } : undefined}
     >
-      <span aria-hidden="true" className="orb z-0 -left-24 top-1/3 h-[340px] w-[340px] bg-accent/[.22]" />
-      <span aria-hidden="true" className="orb z-0 -bottom-24 -right-16 h-[300px] w-[300px] bg-accent-light/90" />
+      <style>{STYLE}</style>
 
-      <div className="relative z-[1] mx-auto flex max-w-[1240px] flex-col gap-5 lg:grid lg:grid-cols-[1.1fr_.9fr] lg:items-start lg:gap-14">
-        {/* LEFT — pinned photo (on mobile this column dissolves so the strip can stick) */}
-        <div className="max-lg:contents lg:relative lg:self-stretch">
-          <div className="sticky top-[84px] z-10 max-lg:order-2 max-sm:top-[72px] lg:top-28 lg:h-[min(760px,calc(100svh-8rem))]">
-            {/* below lg: the frame's height comes from its width (via --ar) and the width is limited so the frame is never taller
-                than 48% of the screen (44% on phones). lg and up: unchanged, it fills the sticky box. */}
-            <div
-              style={{ '--ar': (ratio / SHOWN).toFixed(3) }}
-              className="relative mx-auto h-full w-full lg:max-w-[640px]
-                         max-lg:[aspect-ratio:var(--ar)] max-lg:w-[min(100%,calc(min(48svh,460px)*var(--ar)))]
-                         max-sm:w-[min(100%,calc(min(44svh,400px)*var(--ar)))]"
-            >
-              <div className="relative h-full w-full overflow-hidden rounded-[18px] bg-accent-light shadow-[0_30px_60px_-24px_rgba(33,37,41,.35),0_0_0_6px_rgba(255,255,255,.7)] lg:rounded-b-[24px] lg:rounded-t-[320px]">
-                {ABOUT_STORY.map((s, i) => (
-                  <img
-                    key={s.title} src={s.img} alt={i === active ? s.caption : ''} aria-hidden={i !== active}
-                    loading={i === 0 ? 'eager' : 'lazy'} decoding="async" onLoad={i === 0 ? (e) => measure(e.currentTarget) : undefined}
-                    className={`absolute inset-0 h-full w-full object-cover [transition:opacity_.8s_ease,transform_1.2s_cubic-bezier(.22,.61,.36,1)] motion-reduce:transition-none
-                                ${i === active ? 'scale-100 opacity-100' : 'scale-110 opacity-0'}`}
-                  />
-                ))}
-                <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-p9/70 to-transparent" />
+      {pinned ? (
+        <div className="sticky top-0 flex h-[100svh] flex-col pb-[max(.75rem,env(safe-area-inset-bottom))] pt-[76px] sm:pb-5 sm:pt-24">
+          <div className="mx-auto w-full max-w-[1240px] shrink-0 px-4 sm:px-8 lg:px-12">{head}</div>
 
-                <span className="absolute left-3 top-3 z-[2] rounded-full bg-p9/55 px-3 py-1 text-[12.5px] font-semibold tabular-nums tracking-wide text-p1 backdrop-blur-sm lg:left-1/2 lg:top-7 lg:-translate-x-1/2">
-                  {pad(active)} / {pad(N - 1)}
-                </span>
-
-                <span className="glass-chip absolute bottom-9 left-4 z-[2] rounded-full px-3.5 py-1.5 text-[13px] font-medium text-white max-sm:bottom-8 max-sm:left-3 max-sm:text-xs lg:bottom-11 lg:left-6">
-                  {ABOUT_STORY[active].caption}
-                </span>
-
-                {/* segmented progress */}
-                <div className="absolute inset-x-4 bottom-3.5 z-[2] flex gap-1.5 max-sm:inset-x-3 max-sm:bottom-3 lg:inset-x-6 lg:bottom-5" aria-hidden="true">
-                  {ABOUT_STORY.map((s, i) => (
-                    <span key={s.title} className="h-[3px] flex-1 overflow-hidden rounded-full bg-white/35">
-                      <span className={`block h-full origin-left rounded-full bg-white [transition:transform_.6s_ease] motion-reduce:transition-none ${i <= active ? 'scale-x-100' : 'scale-x-0'}`} />
-                    </span>
-                  ))}
+          {/* stage: the full width of the page. Carousel behind, cards on its centre line. */}
+          <div className="as-stage relative mt-2 min-h-0 flex-1 sm:mt-3">
+            {/* pointer-events-none: the carousel never eats wheel / touch, so the page scrolls from anywhere on it */}
+            <div className="pointer-events-none absolute inset-0">
+              {strip ? (
+                /* phones: one row of photos; the scroll slides it sideways (see push above) */
+                <div className="absolute inset-0 overflow-hidden">
+                  <div ref={stripRef} className="flex h-full items-center will-change-transform" style={{ gap }}>
+                    {photos.map((ph, i) => (
+                      <img
+                        key={`${ph.src}-${i}`} src={ph.src} alt={ph.alt} loading={i < 3 ? 'eager' : 'lazy'} decoding="async" draggable="false"
+                        style={{ height: `${cardHeight * 100}%` }}
+                        className={`aspect-[3/4] flex-none rounded-[18px] object-cover shadow-[0_24px_44px_-26px_rgba(33,37,41,.5)] [transition:opacity_.4s_ease] ${i === active ? 'opacity-100' : 'opacity-60'}`}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
+              ) : (
+              <FlexCarousel
+                items={items}
+                controlRef={ctl}
+                interactive={false}
+                preset="liquid"
+                fit="portrait"
+                cardHeight={cardHeight}
+                gap={gap}
+                radius={0}
+                captions={false}
+                captureWheel={false}
+                focusOnClick={false}
+                autoplay={false}
+                onChange={onChange}
+                className="!cursor-default"
+              />
+            
+              )}
+            </div>
 
-              {/* flat badge overlapping the corner (replaces the 3D object) */}
-              <div aria-hidden="true" className="absolute -bottom-5 -right-5 hidden h-[88px] w-[88px] place-items-center rounded-full border border-line bg-paper shadow-[0_18px_36px_-16px_rgba(33,37,41,.4)] lg:grid">
-                <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#5a8a6a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5 19c0-9 5-14 14-14 0 9-5 14-14 14z" /><path d="M5 19c3-4 6-7 10-9" />
-                </svg>
-              </div>
+            {/* TOP card: chapter heading, sitting right on top of the centred photo */}
+            <StoryCard
+              active={chapter} dir={dir} count={chapters.length}
+              tab={TABS[chapter % TABS.length]}
+              className="w-[min(500px,calc(100%-3rem))] sm:w-[min(500px,calc(100%-3.5rem))]"
+              style={{ bottom: `calc(${edge}% + ${phone ? 8 : 12}px)` }}
+            >
+              {(c) => (
+                <h3 className="font-display text-[clamp(17px,min(2.3vw,3.7svh),32px)] font-normal leading-[1.15] text-white">
+                  {chapters[c].title}
+                </h3>
+              )}
+            </StoryCard>
+
+            {/* BOTTOM card: chapter description, hanging right under the centred photo */}
+            <StoryCard
+              active={chapter} dir={dir} delay={90} count={chapters.length}
+              tab={TABS[(chapter + 2) % TABS.length]}
+              className="w-[min(540px,calc(100%-3rem))] sm:w-[min(540px,calc(100%-3.5rem))]"
+              style={{ top: `calc(${edge}% + ${phone ? 8 : 12}px)` }}
+            >
+              {(c) => (
+                <>
+                  <p className="text-[clamp(13px,min(1.35vw,2.1svh),17px)] leading-[1.5] text-white sm:leading-[1.55]">{chapters[c].text}</p>
+                  {chapters[c].cta && (
+                    <a
+                      href="#booking"
+                      className="pointer-events-auto mt-2.5 inline-flex min-h-[44px] items-center rounded-full bg-white px-5 text-sm font-semibold text-[#14211a] no-underline transition-colors duration-200 active:bg-accent-light [@media(hover:hover)]:hover:bg-accent-light sm:mt-3
+                                 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                    >
+                      Book appointment
+                    </a>
+                  )}
+                </>
+              )}
+            </StoryCard>
+
+            {/* photo counter + dots in a dark pill, readable over any photo. Each dot has a 24px tap area. */}
+            <div className="absolute right-1 top-1/2 z-20 flex -translate-y-1/2 flex-col items-center gap-1 rounded-full bg-black/50 px-1.5 py-2.5 sm:right-5 sm:gap-1.5 sm:px-2 sm:py-3">
+              <span className="text-[11px] tabular-nums text-white/80" aria-hidden="true">{active + 1}/{n}</span>
+              {photos.map((p, i) => (
+                <button
+                  key={`${p.src}-${i}`} type="button" onClick={() => jump(i)} aria-label={`Go to photo ${i + 1}: ${p.title}`}
+                  aria-current={i === active ? 'true' : undefined}
+                  className="relative grid h-4 w-4 cursor-pointer place-items-center border-0 bg-transparent p-0 before:absolute before:-inset-1 before:content-[''] sm:h-3 sm:w-3
+                             focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
+                >
+                  <span aria-hidden="true" className={`block w-2 rounded-full transition-[height,background-color] duration-300 ${i === active ? 'h-4 bg-white' : 'h-2 bg-white/40'}`} />
+                </button>
+              ))}
             </div>
           </div>
         </div>
-
-        {/* RIGHT — heading + cards.
-            lg:pb-[20svh] keeps the photo pinned until the last card reaches the centre line,
-            so the final image is settled before the photo scrolls away with the section. */}
-        <div className="max-lg:contents lg:pb-[20svh]">
-          <header className="as-head max-lg:order-1 lg:pb-10">
-            <p className="eyebrow eyebrow-light">About the clinic</p>
-            <h2 id="as-title" className="mb-4 mt-1.5 font-display text-[clamp(30px,3.6vw,48px)] font-normal leading-[1.1] text-p9">
-              Care that sees the whole person
-            </h2>
-            <p className="max-w-[520px] text-[15.5px] leading-[1.75] text-p7 lg:text-[16.5px]">
-              Dr. Thaj Homoeo Clinic in Minjur, Chennai, pairs homoeopathic medicine with time to listen.
-            </p>
-          </header>
-
-          {/* clinic logo — sits in the text column, scrolls with the cards, parallax in the effect above.
-              Photo: public/assets/about/clinic_logo_showcase.webp. It is taller than its window (h-[120%], -top-[10%])
-              so the parallax slide never shows an empty edge. On phones it comes after the story cards. */}
-          <div className="as-logo relative mb-4 max-lg:order-4 max-lg:mt-4">
-            <div className="as-logo-frame relative aspect-[4/3] w-full overflow-hidden rounded-[22px] bg-[#1c1a19] shadow-[0_30px_60px_-28px_rgba(33,37,41,.45),0_0_0_6px_rgba(255,255,255,.7)] lg:rounded-[26px]">
-              <img
-                src="/assets/about/clinic_logo_showcase.webp" alt="Dr. Thaj Homoeo Clinic logo"
-                width="1500" height="981" loading="lazy" decoding="async" draggable="false"
-                className="as-logo-img absolute inset-x-0 -top-[10%] h-[120%] w-full select-none object-cover will-change-transform"
-              />
-              <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] shadow-[inset_0_0_0_1px_rgba(255,255,255,.12)]" />
-            </div>
-          </div>
-
-          <ol className="flex flex-col gap-2 max-lg:order-3">
-            {ABOUT_STORY.map((s, i) => {
-              const on = i === active;
-              return (
-                /* the <li> is the scroll slot (taller on desktop); the card sits centred in it */
-                <li key={s.title} aria-current={on ? 'true' : undefined} className="as-card lg:flex lg:min-h-[34svh] lg:items-center">
-                  <div
-                    className={`relative w-full rounded-[22px] border bg-paper px-6 py-5 [transition:opacity_.5s_ease,box-shadow_.5s_ease,border-color_.5s_ease] motion-reduce:transition-none max-sm:px-5 max-sm:py-5 lg:rounded-[26px] lg:px-10 lg:py-9
-                                ${on ? 'border-line opacity-100 shadow-[0_20px_40px_-26px_rgba(33,37,41,.4)]' : 'border-transparent opacity-50'}`}
-                  >
-                    <span aria-hidden="true" className={`absolute bottom-5 left-0 top-5 w-[3px] rounded-full bg-accent [transition:transform_.5s_ease] lg:bottom-7 lg:top-7 ${on ? 'scale-y-100' : 'scale-y-0'}`} />
-                    <span className="mb-2 block font-display text-[clamp(34px,3.4vw,54px)] leading-none text-accent/80">{pad(i)}</span>
-                    <h3 className="mb-2 font-display text-[clamp(21px,2vw,30px)] font-normal leading-[1.2] text-p9">{s.title}</h3>
-                    <p className="text-[15px] leading-[1.7] text-p7 lg:text-[16.5px]">{s.text}</p>
+      ) : (
+        <div className="px-4 py-14 sm:px-8 sm:py-16 lg:px-12 lg:py-20">
+          <div className="mx-auto max-w-[1240px]">
+            {head}
+            <ol className="mt-8 grid gap-4 sm:mt-10 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
+              {chapters.map((c, i) => (
+                <li key={c.title} className="overflow-hidden rounded-[22px] text-white sm:rounded-[26px]" style={{ backgroundColor: DEEP }}>
+                  <div className="aspect-[4/3] bg-[#1d3328] sm:aspect-[3/4]">
+                    <img src={photos.find((p) => p.chapter === i)?.src} alt={c.title} loading="lazy" decoding="async" draggable="false" className="h-full w-full object-cover" />
+                  </div>
+                  <div className="border-t-4 p-5" style={{ borderColor: TABS[i % TABS.length] }}>
+                    <h3 className="mb-2 font-display text-[22px] font-normal leading-[1.15]">{c.title}</h3>
+                    <p className="text-[15px] leading-[1.65]">{c.text}</p>
+                    {c.cta && (
+                      <a href="#booking" className="mt-4 inline-flex min-h-[44px] items-center rounded-full bg-white px-6 text-sm font-semibold text-[#14211a] no-underline">
+                        Book appointment
+                      </a>
+                    )}
                   </div>
                 </li>
-              );
-            })}
-          </ol>
+              ))}
+            </ol>
+          </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }
