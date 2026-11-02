@@ -86,8 +86,8 @@ export default function Navbar() {
       <div ref={rowRef} className="pointer-events-auto flex items-center gap-3 max-lg:gap-2 max-sm:gap-2.5">
         <a href="#" aria-label="Dr. Thaj Homoeo Clinic — home" className="pn-logo">
           <img
-            src="/assets/doctors/clinic_logo_og_nav_crop.webp" alt="Dr. Thaj Homoeo Clinic logo" width="271" height="234"
-            className="block h-[40px] w-auto max-sm:h-[34px]"
+            src="/assets/doctors/clinic_logo_400.webp" alt="Dr. Thaj Homoeo Clinic logo" width="400" height="314"
+            className="block h-[68px] w-auto max-lg:h-[56px] max-sm:h-[42px]"
           />
         </a>
 

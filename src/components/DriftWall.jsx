@@ -12,6 +12,8 @@
      5. first paint             the wall is positioned before the first animation frame, not after it
      6. `idleOverlay`           strength of the dark tint on a resting tile (upstream: fixed 0.42)
      7. filters                 no per-image filter unless greyscale is on (cheaper on phones)
+    10. loop={false}            no repeated tiles: columns ping-pong smoothly over their own height (short columns sit centred)
+     9. pointer move            hit-testing under the pointer runs at most once per frame (upstream: on every pointer event)
      8. taps                    a tap in the gap between tiles opens the nearest photo within fingertip reach */
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -61,6 +63,7 @@ const DriftWall = ({
   onSelect,            // local change 1
   mask = true,         // local change 4: false = no mask on the wall itself (the parent fades its edges instead)
   tabbable = true,     // local change 2
+  loop = true,         // local change 10: false = every photo appears once; each column glides up and down over its own length instead of repeating
   className = '',
   style
 }) => {
@@ -110,10 +113,11 @@ const DriftWall = ({
     const unit = tileHeight + gap;
     return columnItems.map(col => {
       const copyHeight = Math.max(unit, col.length * unit);
-      const copies = Math.max(2, Math.ceil((containerHeight * 1.6) / copyHeight) + 1);
-      return { copyHeight, copies };
+      const copies = loop ? Math.max(2, Math.ceil((containerHeight * 1.4) / copyHeight) + 1) : 1;   // 1.4 (upstream 1.6): fewer repeated tiles to keep alive
+      const range = Math.max(0, copyHeight - containerHeight);   // loop = false: how far the column can glide
+      return { copyHeight, copies, range };
     });
-  }, [columnItems, tileHeight, gap, containerHeight]);
+  }, [columnItems, tileHeight, gap, containerHeight, loop]);
 
   useLayoutEffect(() => {
     if (!containerRef.current) return;
@@ -124,6 +128,16 @@ const DriftWall = ({
     return () => ro.disconnect();
   }, []);
 
+  /* where a column's track sits for a given travelled distance: looping columns just scroll; non-looping ones glide
+     up and down (eased at both ends) and a column shorter than the wall stays centred */
+  const trackY = useCallback((c, off) => {
+    const meta = columnMeta[c];
+    if (!meta) return 0;
+    if (loop) return -off;
+    if (meta.range <= 0) return (containerHeight - meta.copyHeight) / 2;
+    return -meta.range * (0.5 - 0.5 * Math.cos((Math.PI * off) / meta.range));
+  }, [columnMeta, loop, containerHeight]);
+
   const baseVelocities = useMemo(() => {
     const dirSign = direction === 'up' ? 1 : -1;
     return columnItems.map((_, c) => {
@@ -133,9 +147,9 @@ const DriftWall = ({
   }, [columnItems, speed, direction, variance]);
 
   useEffect(() => {
-    offsetsRef.current = columnMeta.map((meta, c) => meta.copyHeight * ((c * 0.37) % 1));
+    offsetsRef.current = columnMeta.map((meta, c) => (loop ? meta.copyHeight : meta.range * 2) * ((c * 0.37) % 1));
     velocitiesRef.current = columnItems.map(() => 0);
-  }, [columnMeta, columnItems]);
+  }, [columnMeta, columnItems, loop]);
 
   const applyPlaneTransform = useCallback(
     (px, py) => {
@@ -153,9 +167,9 @@ const DriftWall = ({
   useLayoutEffect(() => {
     applyPlaneTransform(0, 0);
     trackRefs.current.forEach((el, c) => {
-      if (el) el.style.transform = `translate3d(0, ${-(offsetsRef.current[c] ?? 0)}px, 0)`;
+      if (el) el.style.transform = `translate3d(0, ${trackY(c, offsetsRef.current[c] ?? 0)}px, 0)`;
     });
-  }, [applyPlaneTransform, columnMeta]);
+  }, [applyPlaneTransform, columnMeta, trackY]);
 
   useEffect(() => {
     if (!inView) return;   // local change 3
@@ -163,7 +177,7 @@ const DriftWall = ({
       // local change 3: reduced motion gets a still wall, painted once, with no frame loop
       applyPlaneTransform(0, 0);
       trackRefs.current.forEach((el, c) => {
-        if (el) el.style.transform = `translate3d(0, ${-(offsetsRef.current[c] ?? 0)}px, 0)`;
+        if (el) el.style.transform = `translate3d(0, ${trackY(c, offsetsRef.current[c] ?? 0)}px, 0)`;
       });
       return;
     }
@@ -190,18 +204,24 @@ const DriftWall = ({
 
           const ease = 1 - Math.exp(-dt / (target === 0 ? 0.16 : 0.28));
           velocitiesRef.current[c] += (target - velocitiesRef.current[c]) * ease;
-          let next = (offsetsRef.current[c] ?? 0) + velocitiesRef.current[c] * dt;
-          next = ((next % meta.copyHeight) + meta.copyHeight) % meta.copyHeight;
+          let next;
+          if (loop) {
+            next = (offsetsRef.current[c] ?? 0) + velocitiesRef.current[c] * dt;
+            next = ((next % meta.copyHeight) + meta.copyHeight) % meta.copyHeight;
+          } else {
+            const period = Math.max(1, meta.range * 2);
+            next = ((offsetsRef.current[c] ?? 0) + Math.abs(velocitiesRef.current[c]) * dt) % period;
+          }
           offsetsRef.current[c] = next;
 
           const el = trackRefs.current[c];
-          if (el) el.style.transform = `translate3d(0, ${-next}px, 0)`;
+          if (el) el.style.transform = `translate3d(0, ${trackY(c, next)}px, 0)`;
         }
       } else {
         for (let c = 0; c < trackRefs.current.length; c++) {
           const el = trackRefs.current[c];
           const meta = columnMeta[c];
-          if (el && meta) el.style.transform = `translate3d(0, ${-(offsetsRef.current[c] ?? 0)}px, 0)`;
+          if (el && meta) el.style.transform = `translate3d(0, ${trackY(c, offsetsRef.current[c] ?? 0)}px, 0)`;
         }
       }
 
@@ -214,7 +234,7 @@ const DriftWall = ({
       rafRef.current = null;
       lastTsRef.current = null;
     };
-  }, [baseVelocities, columnMeta, pauseOnHover, parallax, reduced, inView, applyPlaneTransform]);
+  }, [baseVelocities, columnMeta, pauseOnHover, parallax, reduced, inView, applyPlaneTransform, loop, trackY]);
 
   const activate = useCallback((id, index) => {
     activeIdRef.current = id;
@@ -227,7 +247,22 @@ const DriftWall = ({
     setActiveId(null);
   }, []);
 
+  const moveRaf = useRef(0);
+  const lastMove = useRef(null);
   const handlePointerMove = useCallback(
+    e => {
+      // local change 9: remember the latest position and resolve it once per frame
+      lastMove.current = { clientX: e.clientX, clientY: e.clientY };
+      if (moveRaf.current) return;
+      moveRaf.current = requestAnimationFrame(() => {
+        moveRaf.current = 0;
+        if (lastMove.current) resolvePointer(lastMove.current);
+      });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [parallax, reduced]
+  );
+  const resolvePointer = useCallback(
     e => {
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
@@ -401,6 +436,7 @@ const DriftWall = ({
           return (
             <div
               className="relative w-[calc(var(--dw-tile-w)+var(--dw-gap))] [transform-style:preserve-3d]"
+              style={loop ? undefined : { height: containerHeight }}
               key={`col-${c}`}
             >
               <div

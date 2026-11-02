@@ -1,13 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { gsap } from '../lib/gsap';
-import { ADDRESS, EMAIL, GALLERY, MAPS_URL, PHARMACY, PHONES, SCHEDULE, SERVICES, TIME_SLOTS, WA_NUMBER } from '../data/content';
+import { ADDRESS, EMAIL, MAPS_URL, PHARMACY, PHONES, SCHEDULE, SERVICES, TIME_SLOTS, WA_NUMBER } from '../data/content';
 import MapCard from './MapCard';
 import { getStatus } from './OpenStatus';
 import { prefersReducedMotion, todayISO } from '../lib/utils';
-
-/* Left panel photo (blurred, behind the clinic details). Swap for the real clinic photo —
-   an exterior or entrance shot works best for highlighting the location. */
-const BOOKING_PHOTO = GALLERY[1];
 
 /* consultation days + both sessions, read from content.js → PHARMACY.hours so there is one place to edit */
 const CONSULT = PHARMACY.hours.find((h) => h.key === 'consultation');
@@ -105,24 +101,29 @@ function loadDraft() {
   } catch { return null; }
 }
 
-const label = 'text-[11px] font-semibold uppercase tracking-[.1em] text-p5';
-const optional = <span className="text-[11px] font-normal normal-case tracking-normal text-p6">(optional)</span>;
-const required = <span className="font-bold text-[#ff6b6b]">*</span>;
+/* The appointment form is styled after a clean "Create appointment" card: a white card on a soft tint, a header with a divider,
+   sentence-case labels above rounded pill inputs, and a footer row with an outline button and a dark green button.
+   GREEN is the same deep green used on the doctor badge. */
+const GREEN = '#2f5a3f';
+const ERR = '#d1343a';
+const label = 'text-[13px] font-medium text-p9';
+const optional = <span className="text-xs font-normal text-p6">(optional)</span>;
+const required = <span className="font-bold text-[#d1343a]">*</span>;
 const fieldCls = (invalid) =>
-  `appearance-none rounded-lg border-[1.5px] px-3.5 py-[11px] font-body text-sm text-p1 outline-none transition-[border-color,background] duration-200 placeholder:text-p6 focus:border-accent ` +
-  (invalid ? 'border-[#ff6b6b] bg-field-invalid' : 'border-p7 bg-p7 focus:bg-field-focus');
+  `h-11 w-full appearance-none rounded-full border px-4 font-body text-sm text-p9 outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-[13px] placeholder:text-p5 focus:border-[#2f5a3f] focus:shadow-[0_0_0_3px_rgba(47,90,63,.14)] ` +
+  (invalid ? 'border-[#d1343a] bg-[#fff6f6]' : 'border-p3 bg-white');
 const chipCls = (active) =>
-  `cursor-pointer rounded-full border-[1.5px] px-3 py-1.5 font-body text-[12.5px] transition-[border-color,background,color] duration-150 ` +
-  (active ? 'border-accent bg-slot-active text-p1' : 'border-p7 bg-p7 text-p3 hover:border-accent hover:text-p1');
+  `cursor-pointer rounded-full border px-3.5 py-2 font-body text-[13px] transition-[border-color,background,color] duration-150 ` +
+  (active ? 'border-[#2f5a3f] bg-[#2f5a3f] font-medium text-white' : 'border-p3 bg-white text-p7 hover:border-[#2f5a3f] hover:text-p9');
 const groupOutline = (invalid) =>
-  `rounded-[10px] [outline-offset:4px] [transition:outline-color_.2s] ${invalid ? '[outline:1.5px_solid_#ff6b6b]' : '[outline:1.5px_solid_transparent]'}`;
+  `rounded-[14px] [outline-offset:4px] [transition:outline-color_.2s] ${invalid ? '[outline:1.5px_solid_#d1343a]' : '[outline:1.5px_solid_transparent]'}`;
 
 function Field({ id, labelNode, error, invalid, children }) {
   return (
-    <div className="flex flex-col gap-[7px]">
+    <div className="flex flex-col gap-2">
       <label htmlFor={id} className={label}>{labelNode}</label>
       {children}
-      {invalid && <span className="mt-0.5 text-[11.5px] text-[#ff6b6b]">{error}</span>}
+      {invalid && <span className="mt-0.5 text-[12px] text-[#d1343a]">{error}</span>}
     </div>
   );
 }
@@ -142,7 +143,7 @@ function InfoItem({ icon, title, children }) {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">{infoIcons[icon]}</svg>
       </div>
       <div>
-        <p className="mb-1 text-[11px] font-semibold uppercase tracking-[.14em] text-mint">{title}</p>
+        <p className="mb-1 text-xs font-semibold uppercase tracking-[.14em] text-mint">{title}</p>
         <p className="text-[14.5px] leading-[1.6] text-p1">{children}</p>
       </div>
     </div>
@@ -160,15 +161,15 @@ function Stepper({ step }) {
             <span className="flex items-center gap-2.5">
               <span
                 className={`grid h-7 w-7 flex-none place-items-center rounded-full border-[1.5px] text-xs font-semibold transition-[background,border-color,color] duration-300
-                            ${on ? 'border-accent bg-accent text-white' : done ? 'border-accent bg-accent/25 text-accent-light' : 'border-p7 bg-transparent text-p5'}`}
+                            ${on ? 'border-[#2f5a3f] bg-[#2f5a3f] text-white' : done ? 'border-[#2f5a3f] bg-[#2f5a3f]/12 text-[#2f5a3f]' : 'border-p3 bg-white text-p6'}`}
               >
                 {done ? '✓' : i + 1}
               </span>
-              <span className={`text-[13px] font-medium transition-colors duration-300 ${on ? 'text-p1' : done ? 'text-p3' : 'text-p5'}`}>{s}</span>
+              <span className={`text-[13px] font-medium transition-colors duration-300 ${on ? 'text-p9' : done ? 'text-p7' : 'text-p6'}`}>{s}</span>
             </span>
             {i < STEPS.length - 1 && (
-              <span aria-hidden="true" className="mx-3 h-[1.5px] flex-1 overflow-hidden rounded-full bg-p7 max-[375px]:mx-1.5">
-                <span className={`block h-full origin-left bg-accent [transition:transform_.5s_ease] ${done ? 'scale-x-100' : 'scale-x-0'}`} />
+              <span aria-hidden="true" className="mx-3 h-[1.5px] flex-1 overflow-hidden rounded-full bg-p3 max-[375px]:mx-1.5">
+                <span className={`block h-full origin-left bg-[#2f5a3f] [transition:transform_.5s_ease] ${done ? 'scale-x-100' : 'scale-x-0'}`} />
               </span>
             )}
           </li>
@@ -180,11 +181,11 @@ function Stepper({ step }) {
 
 function SummaryRow({ title, value, onEdit }) {
   return (
-    <div className="flex items-baseline justify-between gap-4 border-t border-white/[.08] py-2.5 first:border-t-0">
-      <dt className="text-[11px] font-semibold uppercase tracking-[.1em] text-p5">{title}</dt>
-      <dd className="flex items-baseline gap-3 text-right text-sm text-p1">
+    <div className="flex items-baseline justify-between gap-4 border-t border-p2 py-2.5 first:border-t-0">
+      <dt className="text-[12px] font-medium text-p6">{title}</dt>
+      <dd className="flex items-baseline gap-3 text-right text-sm font-medium text-p9">
         <span>{value}</span>
-        <button type="button" onClick={onEdit} className="cursor-pointer border-0 bg-transparent p-0 font-body text-xs text-accent-light underline-offset-4 hover:underline">Edit</button>
+        <button type="button" onClick={onEdit} className="cursor-pointer border-0 bg-transparent p-0 font-body text-xs font-semibold text-[#2f5a3f] underline-offset-4 hover:underline">Edit</button>
       </dd>
     </div>
   );
@@ -201,8 +202,8 @@ function ClinicStatus() {
   const title = st.open ? (head.startsWith('Closes in') ? 'Closing soon' : 'Open now') : 'Closed now';
   const sub = tail ? tail.charAt(0).toUpperCase() + tail.slice(1) : head;
   return (
-    <div role="status" className="inline-flex items-center gap-3 rounded-xl border border-white/[.1] bg-white/[.04] py-1.5 pl-1.5 pr-4">
-      <span aria-hidden="true" className={`grid h-9 w-9 flex-none place-items-center rounded-lg ${st.open ? 'bg-accent text-white' : 'bg-white/10 text-p4'}`}>
+    <div role="status" className="inline-flex items-center gap-3 rounded-full border border-p3 bg-white py-1 pl-1 pr-4">
+      <span aria-hidden="true" className={`grid h-9 w-9 flex-none place-items-center rounded-full ${st.open ? 'bg-[#2f5a3f] text-white' : 'bg-p2 text-p6'}`}>
         <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           {st.open
             ? <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" /></>
@@ -210,8 +211,8 @@ function ClinicStatus() {
         </svg>
       </span>
       <span className="flex flex-col leading-tight">
-        <span className="text-[13px] font-semibold text-p1">{title}</span>
-        <span className="text-xs text-p5">{sub}</span>
+        <span className="text-[13px] font-semibold text-p9">{title}</span>
+        <span className="text-xs text-p6">{sub}</span>
       </span>
     </div>
   );
@@ -414,23 +415,21 @@ export default function Booking() {
   return (
     <section
       id="booking"
-      className="m-12 grid grid-cols-[.85fr_1.15fr] overflow-hidden rounded-[28px] lg:h-[calc(100svh-112px)] lg:min-h-[560px] lg:grid-rows-[minmax(0,1fr)] bg-p6 shadow-[0_40px_80px_-30px_rgba(20,20,20,.35),0_16px_32px_-12px_rgba(20,20,20,.2),inset_0_1px_0_rgba(255,255,255,.06)]
-                 max-lg:m-8 max-lg:grid-cols-1 max-lg:rounded-[22px] max-sm:m-4 max-sm:rounded-[18px] max-[375px]:m-3 max-[375px]:rounded-[14px] max-[320px]:m-2 max-[320px]:rounded-xl"
+      className="mx-12 my-12 grid grid-cols-[minmax(0,.85fr)_minmax(0,1.15fr)] items-stretch gap-6 lg:h-[calc(100svh-112px)] lg:min-h-[560px] lg:grid-rows-[minmax(0,1fr)]
+                 max-lg:mx-8 max-lg:my-8 max-lg:grid-cols-[minmax(0,1fr)] max-sm:mx-4 max-sm:my-6 max-sm:gap-4 max-[375px]:mx-3 max-[320px]:mx-2"
     >
-      {/* LEFT — clinic details over a blurred clinic photo */}
-      <div id="contact" className="relative scroll-mt-24 overflow-hidden bg-[#14211a] max-lg:order-2 lg:min-h-0">
-        <img src={BOOKING_PHOTO} alt="" aria-hidden="true" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full scale-110 object-cover blur-[6px]" />
-        <span aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(160deg,rgba(20,33,26,.7)_0%,rgba(20,33,26,.9)_100%)]" />
-        <span aria-hidden="true" className="orb -bottom-[120px] -right-[120px] h-80 w-80 bg-accent/35" />
-        <div className="relative flex h-full flex-col overflow-y-auto px-9 py-6 [scrollbar-width:thin] max-lg:px-8 max-lg:py-10 max-sm:px-[18px] max-sm:py-8 max-[375px]:px-3.5 max-[375px]:py-7">
-        <div className="relative my-auto rounded-3xl border border-white/20 bg-white/[.07] p-6 backdrop-blur-md max-sm:rounded-2xl max-sm:p-5">
+      {/* LEFT — clinic details: its own card, solid deep green */}
+      <div id="contact" className="relative scroll-mt-24 overflow-hidden rounded-[24px] bg-[#1b2f24] shadow-[0_30px_60px_-34px_rgba(20,33,26,.6)] max-lg:order-2 max-sm:rounded-[18px] lg:min-h-0">
+        <span aria-hidden="true" className="absolute inset-x-0 top-0 h-1" style={{ background: '#2f5a3f' }} />
+        <div className="relative flex h-full flex-col overflow-y-auto px-9 py-8 [scrollbar-width:thin] max-lg:px-8 max-lg:py-9 max-sm:px-5 max-sm:py-7 max-[375px]:px-4">
+        <div className="relative my-auto">
           <p className="eyebrow eyebrow-dark !mb-2">Visit us</p>
           <h3 className="mb-5 mt-0.5 font-display text-[clamp(26px,2.6vw,34px)] font-normal leading-[1.1] text-white">Clinic details</h3>
           <div className="flex flex-col">
             <InfoItem icon="pin" title="Location">
               {ADDRESS}
               <br />
-              <a href={MAPS_URL} target="_blank" rel="noopener" className="mt-1.5 inline-block text-[13.5px] text-accent-light underline-offset-4 hover:underline">Get directions →</a>
+              <a href={MAPS_URL} target="_blank" rel="noopener" className="mt-1 inline-flex min-h-[44px] items-center text-[13.5px] text-accent-light underline-offset-4 hover:underline">Get directions →</a>
             </InfoItem>
             <InfoItem icon="clock" title="Consultation hours">
               {CONSULT?.days}
@@ -440,7 +439,7 @@ export default function Booking() {
               {PHONES.map((p, i) => (
                 <span key={p.tel}>
                   {i > 0 && <br />}
-                  <a href={`tel:${p.tel}`} className="border-b border-white/30 text-inherit no-underline transition-[border-color] duration-200 hover:border-accent-light">{p.display}</a>
+                  <a href={`tel:${p.tel}`} className="inline-flex min-h-[44px] items-center border-b border-white/30 text-inherit no-underline transition-[border-color] duration-200 hover:border-accent-light">{p.display}</a>
                 </span>
               ))}
             </InfoItem>
@@ -456,36 +455,50 @@ export default function Booking() {
       </div>
 
       {/* RIGHT — appointment wizard */}
-      <div className="flex min-h-0 flex-col bg-p8 px-10 py-6 max-lg:order-1 max-lg:px-8 max-lg:py-10 max-sm:px-4 max-sm:py-8 max-[375px]:px-3 max-[375px]:py-7 max-[320px]:px-2.5 max-[320px]:py-6 lg:overflow-y-auto [scrollbar-width:thin]">
-        <div className="my-auto">
-        <h2 className="mb-1 font-display text-[clamp(22px,2.4vw,32px)] font-normal text-p1 max-[375px]:text-[22px] max-[320px]:text-xl">Schedule your Appointment</h2>
-        <p className="mb-3 text-sm leading-relaxed text-p5 max-[375px]:text-[13px]">
-          Fill in the details below and our team will confirm your slot shortly.
-        </p>
-        <div className="mb-5"><ClinicStatus /></div>
+      <div className="flex min-h-0 min-w-0 max-lg:order-1">
+        <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[24px] border border-p3/80 bg-white shadow-[0_30px_60px_-38px_rgba(33,37,41,.45)] max-sm:rounded-[18px]">
+        {/* card header: title, short line, today's status, then a divider */}
+        {/* on the first step the header is the top 40% of the card; on the later steps it shrinks to a slim band so the date, service
+            and time choices keep their room. The clinic logo sits on the right. */}
+        <div className={`flex flex-none items-center justify-between gap-6 border-b border-p2 bg-[#f7faf6] px-7 py-5 max-sm:flex-col-reverse max-sm:items-start max-sm:gap-3 max-sm:px-5 max-sm:py-4 ${!done && step === 0 ? 'min-h-[230px] lg:h-[40%]' : ''}`}>
+          <div className="min-w-0">
+            <h2 className={`mb-1.5 font-display font-normal leading-[1.1] text-p9 ${!done && step === 0 ? 'text-[clamp(26px,3vw,42px)]' : 'text-[clamp(24px,2.4vw,32px)]'} max-[375px]:text-[22px]`}>Schedule your Appointment</h2>
+            <p className="mb-3.5 max-w-[46ch] text-sm leading-relaxed text-p6 max-[375px]:text-[13px]">
+              Fill in the details below and our team will confirm your slot shortly.
+            </p>
+            <ClinicStatus />
+          </div>
+          <img
+            src="/assets/doctors/clinic_logo_400.webp" alt="Dr. Thaj Homoeo Clinic logo" width="400" height="314" decoding="async" draggable="false"
+            className={`block w-auto flex-none select-none ${!done && step === 0 ? 'h-[clamp(120px,24svh,210px)] max-sm:h-[72px]' : 'h-[72px] max-sm:h-11'}`}
+          />
+        </div>
 
         {done ? (
-          <div ref={panel} role="status" className="rounded-2xl border border-accent/40 bg-accent/10 p-7 text-center">
-            <span className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-accent text-xl text-white" aria-hidden="true">✓</span>
-            <h3 className="mb-2 font-display text-2xl font-normal text-p1">{sentMode === 'auto' ? 'Request sent' : 'Your request is ready'}</h3>
-            <p className="mx-auto mb-6 max-w-[360px] text-sm leading-relaxed text-p3">
+          <div className="min-h-0 flex-1 overflow-y-auto px-7 py-8 max-sm:px-5">
+          <div ref={panel} role="status" className="rounded-2xl border border-[#cfe0cf] bg-[#eef4ec] p-7 text-center">
+            <span className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-[#2f5a3f] text-xl text-white" aria-hidden="true">✓</span>
+            <h3 className="mb-2 font-display text-2xl font-normal text-p9">{sentMode === 'auto' ? 'Request sent' : 'Your request is ready'}</h3>
+            <p className="mx-auto mb-6 max-w-[360px] text-sm leading-relaxed text-p7">
               {sentMode === 'auto'
                 ? 'Your appointment request has been sent to the clinic. Our team will contact you shortly to confirm your slot.'
                 : 'WhatsApp opened with your details. Send the message to complete your request — our team will confirm your slot shortly.'}
             </p>
-            <button type="button" onClick={restart} className="cursor-pointer rounded-[10px] border-[1.5px] border-p7 bg-transparent px-5 py-2.5 font-body text-sm text-p1 transition-[border-color] duration-200 hover:border-accent">
+            <button type="button" onClick={restart} className="h-11 cursor-pointer rounded-full border border-p3 bg-white px-6 font-body text-sm font-medium text-p9 transition-[border-color] duration-200 hover:border-[#2f5a3f]">
               Book another appointment
             </button>
           </div>
+          </div>
         ) : (
           <>
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-7 pb-6 pt-5 [scrollbar-width:thin] max-sm:px-5">
             <Stepper step={step} />
 
             <div ref={panel}>
               {/* STEP 1 — you */}
               {step === 0 && (
                 <>
-                  <div className="mb-5 grid grid-cols-2 gap-5 max-sm:grid-cols-1">
+                  <div className="mb-5 grid grid-cols-2 gap-x-4 gap-y-5 max-sm:grid-cols-1">
                     <Field id="bk-name" labelNode={<>Full Name {required}</>} invalid={invalid.name} error={errOf('name', 'Please enter your name.')}>
                       <input
                         id="bk-name" type="text" autoComplete="name" placeholder="Your name" maxLength={60}
@@ -501,7 +514,7 @@ export default function Booking() {
                       />
                     </Field>
                   </div>
-                  <div className="mb-2 grid grid-cols-2 gap-5 max-sm:grid-cols-1">
+                  <div className="mb-1 grid grid-cols-2 gap-x-4 gap-y-5 max-sm:grid-cols-1">
                     <Field id="bk-dob" labelNode={<>Date of Birth {optional}</>}>
                       <input id="bk-dob" type="date" max={today} value={form.dob} onChange={set('dob')} className={fieldCls(false)} />
                     </Field>
@@ -512,18 +525,18 @@ export default function Booking() {
               {/* STEP 2 — visit: service chips, date strip, time slots */}
               {step === 1 && (
                 <>
-                  <div className="mb-4">
-                    <p className={`${label} mb-2`}>Service Needed {required}</p>
+                  <div className="mb-5">
+                    <p className={`${label} mb-2.5`}>Service Needed {required}</p>
                     <div id="bk-service" tabIndex={-1} role="group" aria-label="Service needed" className={`flex flex-wrap gap-2 outline-none ${groupOutline(invalid.service)}`}>
                       {SERVICES.map((s) => (
                         <button key={s} type="button" aria-pressed={form.service === s} onClick={() => pick('service', s)} className={chipCls(form.service === s)}>{s}</button>
                       ))}
                     </div>
-                    {invalid.service && <span className="mt-1.5 block text-[11.5px] text-[#ff6b6b]">Please select a service.</span>}
+                    {invalid.service && <span className="mt-1.5 block text-[12px] text-[#d1343a]">Please select a service.</span>}
                   </div>
 
-                  <div className="mb-3">
-                    <p className={`${label} mb-2`}>Preferred Date {required}</p>
+                  <div className="mb-4">
+                    <p className={`${label} mb-2.5`}>Preferred Date {required}</p>
                     <div
                       id="bk-prefDate" tabIndex={-1} role="group" aria-label="Preferred date"
                       className={`flex snap-x gap-2 overflow-x-auto pb-2 outline-none [scrollbar-width:thin] ${groupOutline(invalid.prefDate)}`}
@@ -537,29 +550,29 @@ export default function Booking() {
                             key={iso} type="button" disabled={closed} aria-pressed={active}
                             aria-label={`${longDate(iso)}${closed ? ', closed' : ''}`}
                             onClick={() => pick('prefDate', iso)}
-                            className={`flex h-[62px] w-[54px] flex-none snap-start flex-col items-center justify-center gap-0.5 rounded-xl border-[1.5px] font-body transition-[border-color,background,color] duration-150
-                                        ${closed ? 'cursor-not-allowed border-p7 bg-p7 text-p3 opacity-[.38]'
-                                          : active ? 'cursor-pointer border-accent bg-slot-active text-p1'
-                                          : 'cursor-pointer border-p7 bg-p7 text-p3 hover:border-accent hover:text-p1'}`}
+                            className={`flex h-[64px] w-[56px] flex-none snap-start flex-col items-center justify-center gap-0.5 rounded-2xl border font-body transition-[border-color,background,color] duration-150
+                                        ${closed ? 'cursor-not-allowed border-p2 bg-p1 text-p5 opacity-70'
+                                          : active ? 'cursor-pointer border-[#2f5a3f] bg-[#2f5a3f] text-white'
+                                          : 'cursor-pointer border-p3 bg-white text-p7 hover:border-[#2f5a3f] hover:text-p9'}`}
                           >
-                            <span className="text-[10.5px] uppercase tracking-[.08em]">{i === 0 ? 'Today' : WEEKDAY[d.getDay()]}</span>
+                            <span className="text-xs uppercase tracking-[.08em]">{i === 0 ? 'Today' : WEEKDAY[d.getDay()]}</span>
                             <span className="font-display text-[20px] leading-none">{d.getDate()}</span>
-                            <span className="text-[10.5px]">{closed ? 'Closed' : MONTH[d.getMonth()]}</span>
+                            <span className="text-xs">{closed ? 'Closed' : MONTH[d.getMonth()]}</span>
                           </button>
                         );
                       })}
                     </div>
-                    {invalid.prefDate && <span className="mt-1 block text-[11.5px] text-[#ff6b6b]">Please choose a preferred date.</span>}
+                    {invalid.prefDate && <span className="mt-1 block text-[12px] text-[#d1343a]">Please choose a preferred date.</span>}
                   </div>
 
                   <div className="mb-1.5 flex items-center justify-between">
                     <p className={label}>Preferred Time Slot {required}</p>
-                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold tracking-[.04em] text-mint">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-[.04em] text-[#2f5a3f]">
                       <svg aria-hidden="true" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" /></svg>
                       Updated live
                     </span>
                   </div>
-                  <p className="mb-2 text-xs text-p5">{hint}</p>
+                  <p className="mb-2.5 text-xs text-p6">{hint}</p>
                   <div className={`mb-1 grid grid-cols-4 gap-1.5 min-[1280px]:grid-cols-7 ${groupOutline(slotInvalid)}`}>
                     {TIME_SLOTS.map((s) => {
                       const frozen = slotFrozen(form.prefDate, s.time);
@@ -567,10 +580,10 @@ export default function Booking() {
                       return (
                         <button
                           key={s.time} type="button" disabled={frozen} onClick={() => pickSlot(s.time)}
-                          className={`rounded-lg border-[1.5px] px-1 py-2 text-center font-body text-[12.5px] transition-[border-color,background,color] duration-150 max-[375px]:text-xs
-                                      ${frozen ? 'pointer-events-none cursor-not-allowed border-p7 bg-p7 text-p3 line-through opacity-[.38]'
-                                        : active ? 'cursor-pointer border-accent bg-slot-active text-p1'
-                                        : 'cursor-pointer border-p7 bg-p7 text-p3 hover:border-accent hover:text-p1'}`}
+                          className={`rounded-full border px-1 py-2 text-center font-body text-[12.5px] transition-[border-color,background,color] duration-150 max-[375px]:text-xs
+                                      ${frozen ? 'pointer-events-none cursor-not-allowed border-p2 bg-p1 text-p5 line-through'
+                                        : active ? 'cursor-pointer border-[#2f5a3f] bg-[#2f5a3f] font-medium text-white'
+                                        : 'cursor-pointer border-p3 bg-white text-p7 hover:border-[#2f5a3f] hover:text-p9'}`}
                         >
                           {s.label}
                         </button>
@@ -585,10 +598,10 @@ export default function Booking() {
                 <>
                   <div className="mb-5">
                     <Field id="bk-reason" labelNode={<>Reason for Visit {optional}</>}>
-                      <textarea id="bk-reason" placeholder="Tell us briefly what's going on…" value={form.reason} onChange={set('reason')} className={`${fieldCls(false)} min-h-[80px] resize-y`} />
+                      <textarea id="bk-reason" placeholder="Tell us briefly what's going on…" value={form.reason} onChange={set('reason')} className={`${fieldCls(false)} !h-auto min-h-[96px] resize-y !rounded-2xl py-3`} />
                     </Field>
                   </div>
-                  <dl className="mb-2 rounded-xl border border-white/[.1] bg-white/[.04] px-4 py-1.5">
+                  <dl className="mb-1 rounded-2xl border border-p2 bg-p1/60 px-4 py-1.5">
                     <SummaryRow title="Name" value={form.name.trim()} onEdit={() => goTo(0)} />
                     <SummaryRow title="Phone" value={form.phone.trim()} onEdit={() => goTo(0)} />
                     {form.dob && <SummaryRow title="Date of birth" value={fmtDate(form.dob)} onEdit={() => goTo(0)} />}
@@ -600,43 +613,51 @@ export default function Booking() {
             </div>
 
             {warning && (
-              <div role="alert" className="mt-3.5 mb-0 rounded-lg border border-[#ff6b6b]/40 bg-warn-bg px-3.5 py-2.5 text-[13px] text-[#ff6b6b]">
+              <div role="alert" className="mt-4 rounded-2xl border border-[#f1b8b8] bg-[#fff3f3] px-4 py-3 text-[13px] text-[#b42318]">
                 <p className="m-0">{warning}</p>
                 {waLink && (
                   <a
                     href={waLink} target="_blank" rel="noopener" onClick={() => finish('manual')}
-                    className="mt-2.5 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-[13px] font-semibold text-p9 no-underline transition-colors duration-200 hover:bg-accent-light"
+                    className="mt-2.5 inline-flex h-10 items-center gap-2 rounded-full bg-[#2f5a3f] px-5 text-[13px] font-semibold text-white no-underline transition-colors duration-200 hover:bg-[#244a33]"
                   >
                     Send on WhatsApp
                   </a>
                 )}
               </div>
             )}
+            {step < STEPS.length - 1 && (
+              <p className="mt-auto flex items-center gap-2 pt-6 text-xs text-p6">
+                <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="flex-none"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+                Your details are used only to confirm your appointment.
+              </p>
+            )}
+            {step === STEPS.length - 1 && (
+              <p className="mt-4 text-xs leading-relaxed text-p6">
+                {BOOKING_API
+                  ? 'Your request is sent straight to the clinic — there is nothing to send yourself.'
+                  : 'This opens WhatsApp with your details — send the message to complete your request.'}
+              </p>
+            )}
+            </div>
 
-            <div className="mt-4 flex gap-3">
+            {/* card footer: a divider, then the back and continue buttons on the right */}
+            <div className="flex justify-end gap-3 border-t border-p2 px-7 py-4 max-sm:px-5">
               {step > 0 && (
                 <button
                   type="button" onClick={() => goTo(step - 1)}
-                  className="cursor-pointer rounded-[10px] border-[1.5px] border-p7 bg-transparent px-5 py-3 font-body text-[15px] text-p3 transition-[border-color,color] duration-200 hover:border-p5 hover:text-p1"
+                  className="h-11 min-w-[110px] cursor-pointer rounded-full border border-p3 bg-white px-6 font-body text-sm font-medium text-p9 transition-[border-color] duration-200 hover:border-[#2f5a3f] max-sm:flex-1"
                 >
                   Back
                 </button>
               )}
               <button
                 type="button" onClick={step === STEPS.length - 1 ? submit : next} disabled={sending} aria-busy={sending}
-                className={`flex-1 cursor-pointer disabled:cursor-wait disabled:opacity-70 rounded-[10px] border-none p-3 font-body text-[15px] font-semibold tracking-[.02em] text-p9 transition-[background,transform] duration-200 active:scale-[.99]
-                            ${stepReady ? 'bg-p1 hover:bg-p3' : 'bg-p5 opacity-[.45]'}`}
+                className={`h-11 min-w-[150px] cursor-pointer rounded-full border-none px-7 font-body text-sm font-semibold text-white transition-[background,transform] duration-200 active:scale-[.99] disabled:cursor-wait disabled:opacity-70 max-sm:flex-1
+                            ${stepReady ? 'bg-[#2f5a3f] hover:bg-[#244a33]' : 'bg-[#2f5a3f]/45'}`}
               >
                 {step === STEPS.length - 1 ? (sending ? 'Sending…' : 'Confirm Appointment') : 'Continue'}
               </button>
             </div>
-            {step === STEPS.length - 1 && (
-              <p className="mt-3 text-center text-xs text-p5">
-                {BOOKING_API
-                  ? 'Your request is sent straight to the clinic — there is nothing to send yourself.'
-                  : 'This opens WhatsApp with your details — send the message to complete your request.'}
-              </p>
-            )}
           </>
         )}
         </div>

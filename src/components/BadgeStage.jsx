@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { CLINIC_PHONE, DOCTOR_CARD, MAPS_URL, SOCIALS } from '../data/content';
-import { prefersReducedMotion } from '../lib/utils';
+import { isLowPower, prefersReducedMotion } from '../lib/utils';
 
 /* The swinging clinic badge (React Bits Lanyard), used by DoctorProfile. Its two faces are painted at runtime: the FRONT carries
    the doctor's picture and details, the BACK carries four logo tiles (Instagram, Facebook, WhatsApp, Google Maps; links come from
@@ -14,7 +14,9 @@ import { prefersReducedMotion } from '../lib/utils';
 
 const Lanyard = lazy(() => import('./Lanyard'));
 
-const DEEP = '#2f5a3f';   // the one deep accent field: the badge and the star marks
+const DEEP = '#2f5a3f';   // the deep green: the accent on the badge text
+const PAPER = '#fbfcfa';  // the badge's card colour (white, with the coloured shapes below on top)
+const INK = '#1f2a44';    // the badge's text
 /* the doctor's picture goes on the FRONT face of the badge. File lives in public/assets/doctors/ (BASE_URL keeps it working under a sub-path deploy) */
 export const DOCTOR_IMG = `${import.meta.env.BASE_URL}assets/doctors/drThaj.webp`;   // same cut-out as the hero card, so the scroll sequence can land it on the badge
 
@@ -69,8 +71,8 @@ const hasWebGL = () => {
   }
 };
 
-/* data-saver on, or 2 GB of memory or less: skip the 3D badge */
-const lowPower = () => !!(navigator.connection?.saveData || (navigator.deviceMemory && navigator.deviceMemory <= 2));
+/* low-power devices skip the 3D badge and the pinned scroll sequence that goes with it (they get the plain static profile) */
+const lowPower = isLowPower;
 
 /* ── badge faces: one 1024×1440 picture per face (the top ~14% stays clear for the strap clip) ── */
 function roundedRect(ctx, x, y, w, h, r) {
@@ -83,13 +85,45 @@ function roundedRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+/* the badge's decoration: overlapping translucent triangles in the corners (multiply, so where two cross the colours mix).
+   Painted once into the face picture, so they cost nothing while the badge swings. [points, colour, opacity] in picture pixels. */
+const SHAPE_TOP = [
+  [[[0, 0], [520, 0], [0, 300]], '#f6c945', 0.95],
+  [[[130, 0], [700, 0], [340, 250]], '#ee5b7e', 0.8],
+  [[[0, 120], [260, 40], [120, 230]], '#8a6fd1', 0.55],
+  [[[1024, 0], [1024, 360], [760, 120]], '#8dbb3c', 0.8],
+  [[[1024, 160], [1024, 360], [900, 250]], '#f58a2e', 0.85],
+  [[[560, 0], [1024, 0], [1024, 140]], '#b24aa2', 0.6],
+];
+const SHAPE_BOTTOM = [
+  [[[0, 1440], [0, 1220], [250, 1440]], '#b24aa2', 0.75],
+  [[[0, 1440], [0, 1330], [150, 1440]], '#f58a2e', 0.9],
+  [[[0, 1300], [110, 1440], [150, 1330]], '#f6c945', 0.8],
+  [[[1024, 1440], [1024, 1250], [820, 1440]], '#ee5b7e', 0.75],
+  [[[1024, 1440], [1024, 1340], [900, 1440]], '#8dbb3c', 0.85],
+  [[[1024, 1330], [930, 1440], [900, 1360]], '#f6c945', 0.8],
+];
+function paintShapes(ctx, shapes) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'multiply';
+  shapes.forEach(([pts, color, alpha]) => {
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+    ctx.closePath();
+    ctx.fill();
+  });
+  ctx.restore();
+}
+
 function newFace() {
   const c = document.createElement('canvas');
   c.width = 1024; c.height = 1440;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = DEEP;
+  ctx.fillStyle = PAPER;
   ctx.fillRect(0, 0, 1024, 1440);
-  ctx.fillStyle = '#fff';
+  ctx.fillStyle = INK;
   ctx.textAlign = 'center';
   return { c, ctx };
 }
@@ -97,10 +131,11 @@ function newFace() {
 /* FRONT: clinic name, a flip hint, the doctor's cut-out, and the doctor's details on a plate along the bottom edge */
 function drawFront(photo, fonts) {
   const { c, ctx } = newFace();
+  paintShapes(ctx, SHAPE_TOP);
   ctx.font = `72px ${fonts.display}`;
   ctx.fillText('Dr. Thaj Homoeo Clinic', 512, 320);
   ctx.font = `42px ${fonts.body}`;
-  ctx.fillStyle = 'rgba(255,255,255,.85)';
+  ctx.fillStyle = 'rgba(31,42,68,.7)';
   ctx.fillText(`${fonts.verb} the badge to flip`, 512, 380);
   if (photo) {
     const h = 1020;
@@ -109,17 +144,18 @@ function drawFront(photo, fonts) {
   }
   /* details plate: the photo fades into the card colour, then name, degrees, registration and phone */
   const fade = ctx.createLinearGradient(0, 1060, 0, 1440);
-  fade.addColorStop(0, 'rgba(47,90,63,0)');
-  fade.addColorStop(0.42, 'rgba(47,90,63,.94)');
-  fade.addColorStop(1, 'rgba(47,90,63,1)');
+  fade.addColorStop(0, 'rgba(251,252,250,0)');
+  fade.addColorStop(0.42, 'rgba(251,252,250,.94)');
+  fade.addColorStop(1, 'rgba(251,252,250,1)');
   ctx.fillStyle = fade;
   ctx.fillRect(0, 1060, 1024, 380);
+  paintShapes(ctx, SHAPE_BOTTOM);
   const lines = [
-    { t: DOCTOR_CARD.name, font: `68px ${fonts.display}`, color: '#fff', big: true },
-    { t: DOCTOR_CARD.degrees, font: `600 40px ${fonts.body}`, color: '#dff0e6' },
-    { t: DOCTOR_CARD.role, font: `36px ${fonts.body}`, color: 'rgba(255,255,255,.85)' },
-    { t: DOCTOR_CARD.reg, font: `34px ${fonts.body}`, color: 'rgba(255,255,255,.85)' },
-    { t: CLINIC_PHONE?.display ? `Clinic: ${CLINIC_PHONE.display}` : '', font: `34px ${fonts.body}`, color: 'rgba(255,255,255,.85)' },
+    { t: DOCTOR_CARD.name, font: `68px ${fonts.display}`, color: INK, big: true },
+    { t: DOCTOR_CARD.degrees, font: `600 40px ${fonts.body}`, color: DEEP },
+    { t: DOCTOR_CARD.role, font: `36px ${fonts.body}`, color: 'rgba(31,42,68,.8)' },
+    { t: DOCTOR_CARD.reg, font: `34px ${fonts.body}`, color: 'rgba(31,42,68,.8)' },
+    { t: CLINIC_PHONE?.display ? `Clinic: ${CLINIC_PHONE.display}` : '', font: `34px ${fonts.body}`, color: 'rgba(31,42,68,.8)' },
   ].filter((l) => l.t);
   /* stack the filled lines upwards from the bottom margin, so a missing field never leaves a gap */
   let y = 1402;
@@ -136,27 +172,18 @@ function drawFront(photo, fonts) {
    so a tap on a tile can open its link (see the onFaceClick handler below). */
 function drawBack(items, logos, fonts) {
   const { c, ctx } = newFace();
-  /* a few faint rings behind everything, and a soft light at the top */
-  ctx.save();
-  ctx.strokeStyle = 'rgba(223,240,230,.10)';
-  ctx.lineWidth = 3;
-  [260, 420, 580, 740].forEach((r) => { ctx.beginPath(); ctx.arc(512, 900, r, 0, Math.PI * 2); ctx.stroke(); });
-  const glow = ctx.createRadialGradient(512, 260, 0, 512, 260, 520);
-  glow.addColorStop(0, 'rgba(159,213,154,.28)');
-  glow.addColorStop(1, 'rgba(159,213,154,0)');
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, 1024, 900);
-  ctx.restore();
+  paintShapes(ctx, SHAPE_TOP);
+  paintShapes(ctx, SHAPE_BOTTOM);
 
-  ctx.fillStyle = '#fff';
+  ctx.fillStyle = INK;
   ctx.textAlign = 'center';
   ctx.font = `66px ${fonts.display}`;
   ctx.fillText('Dr. Thaj Homoeo Clinic', 512, 318);
-  ctx.fillStyle = '#dff0e6';
+  ctx.fillStyle = DEEP;
   ctx.font = `600 34px ${fonts.body}`;
   ctx.fillText('F I N D   U S   O N L I N E', 512, 378);
   /* divider with a star */
-  ctx.fillStyle = 'rgba(223,240,230,.45)';
+  ctx.fillStyle = 'rgba(31,42,68,.25)';
   ctx.fillRect(250, 424, 210, 3);
   ctx.fillRect(564, 424, 210, 3);
   ctx.fillStyle = '#f2c14e';
@@ -172,13 +199,17 @@ function drawBack(items, logos, fonts) {
     const y = y0 + Math.floor(i / 2) * (tile + gap);
     /* card: soft shadow, white tile, the logo, the name */
     ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,.35)';
+    ctx.shadowColor = 'rgba(31,42,68,.22)';
     ctx.shadowBlur = 36;
     ctx.shadowOffsetY = 14;
-    ctx.fillStyle = '#fbfcfa';
+    ctx.fillStyle = '#fff';
     roundedRect(ctx, x, y, tile, tile, 56);
     ctx.fill();
     ctx.restore();
+    ctx.strokeStyle = 'rgba(31,42,68,.1)';
+    ctx.lineWidth = 2;
+    roundedRect(ctx, x, y, tile, tile, 56);
+    ctx.stroke();
     const logo = logos[i];
     if (logo) ctx.drawImage(logo, x + (tile - 188) / 2, y + 52, 188, 188);
     ctx.fillStyle = '#212529';
@@ -186,10 +217,10 @@ function drawBack(items, logos, fonts) {
     ctx.fillText(it.label, x + tile / 2, y + tile - 52);
     hits.push({ x, y, w: tile, h: tile, url: it.url, label: it.label });
   });
-  ctx.fillStyle = 'rgba(255,255,255,.88)';
+  ctx.fillStyle = 'rgba(31,42,68,.85)';
   ctx.font = `38px ${fonts.body}`;
   ctx.fillText(`${fonts.verb} a logo to open it`, 512, 1326);
-  ctx.fillStyle = 'rgba(255,255,255,.6)';
+  ctx.fillStyle = 'rgba(31,42,68,.6)';
   ctx.font = `34px ${fonts.body}`;
   ctx.fillText(`${fonts.verb} the card elsewhere to flip it`, 512, 1380);
   return { url: c.toDataURL('image/png'), hits };
@@ -254,7 +285,7 @@ function QrBadge({ items, overlay = false, anchor = 0.5, phone = false, photoOn 
         <Suspense fallback={null}>
           <Lanyard
             frontImage={photoOn ? faces[0] : faces[1]} backImage={faces[2]} imageFit="cover" onFaceClick={onFaceClick}
-            cardColor={DEEP} finish="matte" strapColor="#14211a"
+            cardColor={PAPER} finish="matte" strapColor="#14211a"
             size={overlay ? 0.48 : phone ? 0.66 : 0.6} strapLength={overlay ? 0.6 : 0.5} anchor={overlay ? anchor : 'center'}
             passThrough={overlay} maxDpr={overlay || phone ? 1.5 : 2}
             className="absolute inset-0"
@@ -268,13 +299,13 @@ function QrBadge({ items, overlay = false, anchor = 0.5, phone = false, photoOn 
 /* no-WebGL fallback: the same four logos as plain links on a flat tile */
 function QrTile({ items }) {
   return (
-    <div className="rounded-[18px] p-7 text-white" style={{ backgroundColor: DEEP }}>
+    <div className="rounded-[18px] p-7" style={{ color: INK, backgroundColor: PAPER, backgroundImage: 'linear-gradient(135deg,#f6c945 0 9%,transparent 9%),linear-gradient(315deg,#ee5b7e 0 9%,transparent 9%)', boxShadow: 'inset 0 0 0 1px rgba(31,42,68,.1)' }}>
       <ul className="m-0 grid list-none grid-cols-2 gap-4 p-0">
         {items.map((it) => (
           <li key={it.icon}>
             <a
               href={it.url} target="_blank" rel="noopener" aria-label={`Open our ${it.label} page`}
-              className="flex flex-col items-center gap-3 rounded-2xl bg-paper p-4 text-[15px] font-semibold text-p9 no-underline transition-transform duration-300 hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              className="flex flex-col items-center gap-3 rounded-2xl bg-paper p-4 text-[15px] font-semibold text-p9 no-underline shadow-[0_6px_18px_-8px_rgba(31,42,68,.3)] transition-transform duration-300 hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a3f]"
             >
               <img src={logoSrc(it.icon)} alt="" width="64" height="64" className="block h-16 w-16" />
               {it.label}
@@ -282,7 +313,7 @@ function QrTile({ items }) {
           </li>
         ))}
       </ul>
-      <p className="mb-0 mt-5 text-[16px] leading-[1.5] text-white/85">Tap a logo to open it.</p>
+      <p className="mb-0 mt-5 text-[16px] leading-[1.5]" style={{ color: 'rgba(31,42,68,.8)' }}>Tap a logo to open it.</p>
     </div>
   );
 }

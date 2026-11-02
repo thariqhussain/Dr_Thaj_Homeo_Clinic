@@ -129,7 +129,7 @@ export default function Footer() {
         <span>© {new Date().getFullYear()} Dr. Thaj Homoeo Clinic. All rights reserved.</span>
         <button
           type="button" aria-label="Back to top" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="grid h-9 w-9 cursor-pointer place-items-center rounded-full border border-white/25 bg-white/[.08] text-white
+          className="grid h-11 w-11 cursor-pointer place-items-center rounded-full border border-white/25 bg-white/[.08] text-white
                      [transition:background_.3s,color_.3s,transform_.4s_cubic-bezier(.34,1.4,.64,1)] hover:-translate-y-[5px] hover:bg-accent-light hover:text-p9"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7" /></svg>

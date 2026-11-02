@@ -4,6 +4,12 @@ export const scrollToId = (id) =>
 export const prefersReducedMotion = () =>
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+/* data-saver on, 4 GB of memory or less, or 4 CPU cores or fewer. Those devices skip the heavy effects (the 3D badge, the WebGL
+   About story, the busiest animations). deviceMemory is Chrome-only; other browsers are judged on cores alone. */
+export const isLowPower = () => !!(navigator.connection?.saveData
+  || (navigator.deviceMemory && navigator.deviceMemory <= 4)
+  || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4));
+
 export const canHover = () =>
   window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 

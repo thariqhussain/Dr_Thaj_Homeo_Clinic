@@ -30,7 +30,9 @@
   color: #5a8a6a; opacity: .7; pointer-events: none;
   animation: dc-spin 40s linear infinite;
 }
-.dc-arch { position: relative; height: 100%; transform-style: preserve-3d; will-change: transform; }
+.dc-arch { position: relative; height: 100%; }
+/* the 3D tilt only exists for a mouse, so touch devices don't keep a 3D layer alive for it */
+@media (hover: hover) and (pointer: fine) { .dc-arch { transform-style: preserve-3d; will-change: transform; } }
 .dc-arch-clip {
   position: relative; width: 100%; height: 100%; min-height: 70cqw; overflow: hidden;
   border-radius: 25cqw 25cqw 3cqw 3cqw; background: #dff0e6;
@@ -170,12 +172,12 @@
   .dc-badge { right: 0; bottom: 3cqw; gap: 7px; padding: 6px 10px 6px 6px; border-radius: 13px; }
   .dc-badge-icon { width: 28px; height: 28px; border-radius: 9px; }
   .dc-badge-icon svg { width: 17px; height: 17px; }
-  .dc-badge-label { font-size: 8.5px; }
-  .dc-badge-deg { font-size: 11.5px; }
-  .dc-badge-deg2 { font-size: 10.5px; }
+  .dc-badge-label { font-size: 11px; }
+  .dc-badge-deg { font-size: 12.5px; }
+  .dc-badge-deg2 { font-size: 12px; }
 
-  /* text column: centred against the photo, and a touch tighter */
-  .dc-text { align-self: center; }
+  /* text column: centred against the photo, left-aligned so it reads naturally */
+  .dc-text { align-self: center; align-items: flex-start; text-align: left; }
   .dc-eyebrow { margin-bottom: 10px; }
   .dc-bio { margin: 0; font-size: 13px; line-height: 1.6; }
   /* the name plate overlaps the photo a little less now that the portrait is bigger */

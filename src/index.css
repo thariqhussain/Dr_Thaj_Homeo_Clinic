@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* self-hosted fonts (latin subset). Inter is one variable file covering every weight used (300-600). */
+@font-face { font-family: 'DM Serif Display'; font-style: normal; font-weight: 400; font-display: swap; src: url('/assets/fonts/dm-serif-display.woff2') format('woff2'); }
+@font-face { font-family: 'DM Serif Display'; font-style: italic; font-weight: 400; font-display: swap; src: url('/assets/fonts/dm-serif-display-italic.woff2') format('woff2'); }
+@font-face { font-family: 'Anton'; font-style: normal; font-weight: 400; font-display: swap; src: url('/assets/fonts/anton.woff2') format('woff2'); }   /* the Clinic Admin heading */
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 300 600; font-display: swap; src: url('/assets/fonts/inter-var.woff2') format('woff2'); }
+
 /* ════════════════════════════════════════════════════════════
    Everything below is the part of the old stylesheet that Tailwind
    utilities can't express cleanly: pseudo-element effects, @property,
@@ -93,6 +99,14 @@
     --pn-strong-ink: #f8f9fa;
     --pn-strong-fill: #5a8a6a;
   }
+  /* phones and tablets: a soft fade behind the navbar so headings never run underneath the logo and buttons */
+  @media (max-width: 1023px) {
+    #siteNav::before {
+      content: ''; position: absolute; inset: -14px 0 -18px; z-index: -1; pointer-events: none;
+      background: linear-gradient(to bottom, rgba(248,249,250,.94) 0%, rgba(248,249,250,.8) 55%, rgba(248,249,250,0) 100%);
+    }
+    #siteNav.is-dark::before { background: linear-gradient(to bottom, rgba(20,21,23,.7) 0%, rgba(20,21,23,.45) 55%, rgba(20,21,23,0) 100%); }
+  }
   /* over a section marked data-nav-dark (Navbar.jsx toggles .is-dark) */
   .site-nav.is-dark {
     --pn-ink: #f8f9fa;
@@ -131,13 +145,9 @@
     .site-nav.is-dark .pn-pill--strong:hover { color: #212529; }
   }
   .pn-pill:focus-visible { outline: 2px solid #5a8a6a; outline-offset: 2px; }
-  /* the logo badge: dark gradient behind the (light) logo */
-  .pn-logo {
-    display: flex; align-items: center; justify-content: center; flex: none; border-radius: 9999px; padding: 3px 22px;
-    background: linear-gradient(to top right, #241b17 0%, #2f2623 50%, #6f696d 100%);
-    box-shadow: inset 0 1px 1px rgba(255,255,255,.22), 0 8px 16px -8px rgba(20,12,10,.6);
-  }
-  @media (max-width: 639px) { .pn-logo { padding: 2px 14px; } .pn-pill { height: 40px; padding: 0 16px; } }
+  /* the logo: just the picture (the full-colour logo carries its own dark green ground, so it reads on any page colour) */
+  .pn-logo { display: flex; align-items: center; justify-content: center; flex: none; filter: drop-shadow(0 6px 10px rgba(20,33,26,.28)); }
+  @media (max-width: 639px) { .pn-pill { height: 40px; padding: 0 16px; } }
   @media (prefers-reduced-motion: reduce) {
     .pn-pill, .pn-pill::before, .pn-label > span { transition: none; }
   }
@@ -154,7 +164,7 @@
   .pn-menu-panel.is-open { visibility: visible; transform: none; transition: transform .5s cubic-bezier(.22,.61,.36,1), visibility 0s; }
   .pn-menu-link { display: block; overflow: hidden; }
   .pn-menu-link > a, .pn-menu-link > button {
-    display: block; padding: 4px 0; border: 0; background: none; text-align: left; cursor: pointer; color: inherit; text-decoration: none;
+    display: block; min-height: 44px; padding: 8px 0; border: 0; background: none; text-align: left; cursor: pointer; color: inherit; text-decoration: none;
     font-family: 'DM Serif Display', Georgia, serif; font-size: clamp(30px, 9vw, 44px); line-height: 1.2;
     transform: translateY(110%); transition: transform .55s cubic-bezier(.22,.61,.36,1), color .2s;
   }
@@ -271,3 +281,5 @@
 @keyframes dp-angle { to { --dp-angle: 360deg; } }
 @keyframes dots-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes sprig-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+/* the quick-contact dock sits over page text on phones and tablets: give it a solid ground so the icons never mix with the words under them */
+@media (max-width: 1023px) { .nav-bar { background: rgba(248,249,250,.96) !important; } }

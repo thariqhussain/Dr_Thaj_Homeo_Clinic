@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { gsap, ScrollTrigger } from '../lib/gsap';
 import { ABOUT_STORY } from '../data/content';
-import { prefersReducedMotion } from '../lib/utils';
+import { isLowPower, prefersReducedMotion } from '../lib/utils';
 import FlexCarousel from './FlexCarousel';
 
 /* About — full-width scrollytelling Flex Carousel, responsive for phones, tablets and desktops.
@@ -27,7 +27,7 @@ import FlexCarousel from './FlexCarousel';
      tablets (640–1023px) mid-size row; portrait and landscape tuned separately
      desktop (1024px+)    full size
    The pinned scroll story is replaced by a plain grid (one tile per chapter) when WebGL2 is missing, data-saver is on,
-   memory is 2 GB or less, or the screen is very short (landscape phones, under 520px high), where the cards can't fit.
+   the device is low-power (see isLowPower), or the screen is very short (landscape phones, under 520px high), where the cards can't fit.
 
    NOTE: no `overflow-hidden` on <section> — it would break `position: sticky`. */
 
@@ -69,15 +69,15 @@ const hasWebGL2 = () => {
   }
 };
 
-/* data-saver on, or 2 GB of memory or less: skip the WebGL story */
-const lowPower = () => !!(navigator.connection?.saveData || (navigator.deviceMemory && navigator.deviceMemory <= 2));
+/* low-power devices (data-saver, 4 GB or less, 4 cores or fewer) skip the WebGL story */
+const lowPower = isLowPower;
 
 /* photo row height (fraction of the stage), gap between photos (px) and scroll per photo (svh), by device.
    `step` is how far you scroll for one photo: smaller = the carousel moves faster for the same scroll */
 function readLayout() {
   const w = window.innerWidth;
   const h = window.innerHeight;
-  if (w < 640) return { cardHeight: 0.4, gap: 10, step: 28, phone: true };
+  if (w < 640) return { cardHeight: 0.46, gap: 10, step: 28, phone: true };
   if (w < 1024) return { cardHeight: h > w ? 0.44 : 0.46, gap: 12, step: 26, phone: false };
   return { cardHeight: h < 700 ? 0.42 : 0.48, gap: 14, step: 24, phone: false };
 }
@@ -328,16 +328,16 @@ export default function AboutStory() {
             </StoryCard>
 
             {/* photo counter + dots in a dark pill, readable over any photo. Each dot has a 24px tap area. */}
-            <div className="absolute right-1 top-1/2 z-20 flex -translate-y-1/2 flex-col items-center gap-1 rounded-full bg-black/50 px-1.5 py-2.5 sm:right-5 sm:gap-1.5 sm:px-2 sm:py-3">
+            <div className="absolute right-1 top-1/2 z-20 flex -translate-y-1/2 flex-col items-center gap-1 rounded-full bg-black/50 px-1.5 py-2.5 max-sm:inset-x-auto max-sm:bottom-2 max-sm:left-1/2 max-sm:right-auto max-sm:top-auto max-sm:-translate-x-1/2 max-sm:translate-y-0 max-sm:flex-row max-sm:gap-2 max-sm:px-3 max-sm:py-1.5 sm:right-5 sm:gap-1.5 sm:px-2 sm:py-3">
               <span className="text-[11px] tabular-nums text-white/80" aria-hidden="true">{active + 1}/{n}</span>
               {photos.map((p, i) => (
                 <button
                   key={`${p.src}-${i}`} type="button" onClick={() => jump(i)} aria-label={`Go to photo ${i + 1}: ${p.title}`}
                   aria-current={i === active ? 'true' : undefined}
-                  className="relative grid h-4 w-4 cursor-pointer place-items-center border-0 bg-transparent p-0 before:absolute before:-inset-1 before:content-[''] sm:h-3 sm:w-3
+                  className="relative grid h-4 w-4 cursor-pointer place-items-center border-0 bg-transparent p-0 before:absolute before:-inset-2.5 before:content-[''] sm:h-3 sm:w-3
                              focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
                 >
-                  <span aria-hidden="true" className={`block w-2 rounded-full transition-[height,background-color] duration-300 ${i === active ? 'h-4 bg-white' : 'h-2 bg-white/40'}`} />
+                  <span aria-hidden="true" className={`block rounded-full transition-[height,width,background-color] duration-300 ${i === active ? 'h-4 w-2 bg-white max-sm:h-2 max-sm:w-4' : 'h-2 w-2 bg-white/40'}`} />
                 </button>
               ))}
             </div>

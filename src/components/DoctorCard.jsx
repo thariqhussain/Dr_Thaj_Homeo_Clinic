@@ -10,6 +10,7 @@ import './DoctorCard.css';
    The `dc-*` classes double as GSAP selector hooks, scoped by gsap.context(). */
 
 const PHOTO = '/assets/doctors/drThaj.webp';             // transparent cut-out (shown by default)
+const PHOTO_SMALL = '/assets/doctors/drThaj-640.webp';       // phone-sized copy of the same cut-out
 const PHOTO_ALT = '/assets/doctors/drThajGreySuit.webp';    // transparent cut-out revealed on hover
 
 /* which hover effect brings in the second photo:
@@ -134,7 +135,7 @@ export default function DoctorCard() {
             {/* …the doctor is a separate layer that grows past its top and sides */}
             <div className="dc-cut">
               <div className="dc-cut-inner">
-                <img className="dc-photo" src={PHOTO} alt="Dr. S. Mohammed Thajudeen" width="340" height="430" decoding="async" draggable="false" />
+                <img className="dc-photo" src={PHOTO} srcSet={`${PHOTO_SMALL} 640w, ${PHOTO} 1024w`} sizes="(max-width: 767px) 240px, 1024px" alt="Dr. S. Mohammed Thajudeen" width="340" height="430" fetchPriority="high" decoding="async" draggable="false" />
               </div>
             </div>
           </div>

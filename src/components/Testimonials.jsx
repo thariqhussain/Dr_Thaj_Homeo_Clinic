@@ -32,7 +32,7 @@ function Card({ r, i }) {
       {long && (
         <button
           type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)}
-          className="mt-3 cursor-pointer border-0 bg-transparent p-0 font-body text-[14px] font-semibold text-accent underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="mt-1 inline-flex min-h-[44px] cursor-pointer items-center border-0 bg-transparent p-0 font-body text-[14px] font-semibold text-accent underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           {open ? 'Show less' : 'Read more'}
         </button>

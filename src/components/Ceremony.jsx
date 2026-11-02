@@ -30,11 +30,11 @@ const ITEMS = PHOTOS.map((p, i) => ({ image: p.src, title: p.alt, index: i }));
    Phones held upright get portrait tiles; a phone on its side is short, so its wall is shorter too. */
 const VIEW_SCALE = 1.14;   // measured: the wall's 3D scale and depth together make the columns about 14% wider than their layout width
 function wallFor(w, h) {
-  const columns = w >= 1200 ? 5 : w >= 900 ? 4 : 3;
+  const columns = w < 640 ? 2 : 3;   // every photo appears once: the columns hold the photos, and each column glides over its own length
   const gap = w >= 1024 ? 18 : w >= 640 ? 16 : 12;
-  const tileWidth = Math.round(w / (columns * VIEW_SCALE) - gap);
+  const tileWidth = Math.min(430, Math.round(w / (columns * VIEW_SCALE) - gap));
   const portrait = w < 640 && h >= w;
-  const tileHeight = Math.round(tileWidth * (portrait ? 1.35 : 0.68));
+  const tileHeight = Math.round(tileWidth * (portrait ? 1.25 : w >= 1024 ? 0.82 : w >= 640 ? 0.78 : 0.68));
   const height =
     h < 520 ? 'clamp(260px,74svh,440px)'            // phone on its side
     : w >= 1024 ? 'clamp(440px,68svh,620px)'
@@ -151,7 +151,7 @@ export default function Ceremony() {
               <DriftWall
                 items={ITEMS} mask={false}
                 columns={wall.columns} tileWidth={wall.tileWidth} tileHeight={wall.tileHeight} gap={wall.gap} radius={14}
-                tilt={16} turn={0} depth={120} speed={canHover ? 26 : 20} direction="up" variance={0.45}
+                loop={false} tilt={16} turn={0} depth={120} speed={canHover ? 26 : 20} direction="up" variance={0.45}
                 parallax={canHover ? 0.5 : 0} pauseOnHover lift={56} overlayColor="#0d1511"
                 dim={canHover ? 0.95 : 0.99} idleOverlay={canHover ? 0.1 : 0.03}   /* touch never hovers a tile, so rest photos at full colour */
                 onSelect={(item) => { opener.current = null; setOpen(item.index); }}
@@ -166,14 +166,14 @@ export default function Ceremony() {
         <div
           role="dialog" aria-modal="true" aria-label={cur.alt}
           onClick={close} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}
-          className="fixed inset-0 z-[200] grid place-items-center bg-[#0d1511]/90 p-4 backdrop-blur-sm overscroll-contain"
+          className="fixed inset-0 z-[200] grid place-items-center bg-[#0d1511]/90 p-4 overscroll-contain"
         >
           <img
             src={cur.src} alt={cur.alt} onClick={(e) => e.stopPropagation()}
             className="max-h-[86svh] max-w-full rounded-2xl object-contain shadow-[0_40px_80px_-30px_rgba(0,0,0,.7)]"
           />
 
-          <span className="absolute left-[max(1rem,env(safe-area-inset-left))] top-[max(1rem,env(safe-area-inset-top))] rounded-full bg-white/10 px-3.5 py-1.5 text-[13px] font-medium tabular-nums text-white backdrop-blur-sm" aria-hidden="true">
+          <span className="absolute left-[max(1rem,env(safe-area-inset-left))] top-[max(1rem,env(safe-area-inset-top))] rounded-full bg-white/20 px-3.5 py-1.5 text-[13px] font-medium tabular-nums text-white" aria-hidden="true">
             {open + 1} / {COUNT}
           </span>
 

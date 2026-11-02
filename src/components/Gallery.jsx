@@ -74,6 +74,18 @@ export default function Gallery() {
     return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
   }, [open, close, go]);
 
+  /* the next page of photos is fetched in idle time, so paging with the arrows never waits on the network */
+  useEffect(() => {
+    if (navigator.connection?.saveData) return undefined;
+    const idle = 'requestIdleCallback' in window;
+    const srcs = ITEMS.slice(first + per, first + 2 * per).map((it) => it.image);
+    const imgs = [];
+    const h = idle
+      ? window.requestIdleCallback(() => srcs.forEach((s) => { const im = new Image(); im.decoding = 'async'; im.src = s; im.decode?.().catch(() => {}); imgs.push(im); }), { timeout: 3000 })
+      : window.setTimeout(() => srcs.forEach((s) => { const im = new Image(); im.src = s; imgs.push(im); }), 1200);
+    return () => { if (idle) window.cancelIdleCallback(h); else clearTimeout(h); };
+  }, [first, per]);
+
   if (!N) return null;
   const cur = CLINIC_PHOTOS[open];
 
@@ -87,12 +99,27 @@ export default function Gallery() {
             Moments and updates from Dr. Thaj Homoeo Clinic. Hover or tap a photo to open it up, then click or tap it again to see it full size.
           </p>
           </div>
-          {paged && (
+          {paged && !narrow && (
             <p className="m-0 text-[13.5px] tabular-nums text-p7" aria-live="polite">{first + 1}–{first + shown.length} of {N}</p>
           )}
         </header>
 
-        <div className="flex items-center gap-3 max-sm:flex-wrap max-sm:justify-center max-sm:gap-4">
+        {/* phones: a row of full photo cards you swipe (a tap opens the full-size view); the accordion is for wider screens */}
+        {narrow && (
+          <ul className="m-0 -mx-4 flex snap-x snap-mandatory list-none gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {ITEMS.map((it, i) => (
+              <li key={it.image} className="w-[82%] flex-none snap-center">
+                <button
+                  type="button" onClick={(e) => { opener.current = e.currentTarget; setOpen(i); }} aria-label={`Open photo ${i + 1} of ${N}`}
+                  className="block aspect-[4/5] w-full cursor-pointer overflow-hidden rounded-2xl border-0 bg-p2 p-0 focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-accent"
+                >
+                  <img src={it.image} alt={it.alt} loading={i < 2 ? 'eager' : 'lazy'} decoding="async" draggable="false" className="h-full w-full object-cover" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className={`flex items-center gap-3 max-sm:flex-wrap max-sm:justify-center max-sm:gap-4 ${narrow ? 'hidden' : ''}`}>
           {paged && <PageBtn label="Previous photos" path="M15 5l-7 7 7 7" can={first > 0} onClick={() => page(-1)} />}
           <div className="min-w-0 flex-1 max-sm:order-1 max-sm:basis-full">
             <AccordionGallery
@@ -103,9 +130,9 @@ export default function Gallery() {
               trigger={canHover ? 'hover' : 'click'}
               orientation={narrow ? 'vertical' : 'horizontal'}
               height={narrow ? '560px' : 'clamp(380px,58svh,500px)'}
-              gap={12} radius={16} expandRatio={0.52} fit="cover"
+              gap={12} radius={16} expandRatio={0.52} fit="cover" dimInactive={0}
               overlayColor="#0d1511" accentColor="#ffffff" textColor="#ffffff"
-              showLabels={HAS_CAPTIONS} grayscale tilt={6} parallax={0.4}
+              showLabels={HAS_CAPTIONS} grayscale={false} tilt={6} parallax={0.4}
             />
           </div>
           {paged && <PageBtn label="Next photos" path="M9 5l7 7-7 7" can={first + per < N} onClick={() => page(1)} />}
@@ -116,7 +143,7 @@ export default function Gallery() {
         <div
           role="dialog" aria-modal="true" aria-label={cur.caption || cur.alt}
           onClick={close}
-          className="fixed inset-0 z-[200] grid place-items-center bg-[#0d1511]/90 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[200] grid place-items-center bg-[#0d1511]/90 p-4"
         >
           <img
             src={cur.src} alt={cur.alt} onClick={(e) => e.stopPropagation()}

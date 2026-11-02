@@ -41,6 +41,7 @@ const AccordionGallery = ({
   showLabels = true,
   grayscale = true,
   fit = 'cover',          // local change 3
+  dimInactive = 0.35,     // local change 9: how much the photos that are not open are darkened (0 = every photo at its own brightness)
   onOpen,                 // local change 4
   className = ''
 }) => {
@@ -105,7 +106,7 @@ const AccordionGallery = ({
               x: vertical ? 0 : isActive ? 0 : shift,
               y: vertical ? (isActive ? 0 : shift) : 0,
               '--ag-gray': gray,
-              '--ag-dim': isActive ? 0 : 0.35,
+              '--ag-dim': isActive ? 0 : dimInactive,
               duration: dur,
               ease
             },
@@ -134,6 +135,7 @@ const AccordionGallery = ({
       tilt,
       parallax,
       grayscale,
+      dimInactive,
       showLabels,
       stagger,
       prefersReduced
@@ -241,17 +243,18 @@ const AccordionGallery = ({
             <span className="absolute inset-0 overflow-hidden [border-radius:inherit]">
               <span
                 ref={el => (mediaRefs.current[i] = el)}
-                className="absolute top-1/2 left-1/2 [filter:grayscale(var(--ag-gray,1))]"
+                className={`absolute top-1/2 left-1/2 ${grayscale ? '[filter:grayscale(var(--ag-gray,1))]' : ''}`}
                 style={{
                   width: vertical ? '100%' : 'var(--ag-media-size, 320px)',
                   height: vertical ? 'var(--ag-media-size, 320px)' : '100%',
-                  willChange: 'transform, filter'
+                  willChange: grayscale ? 'transform, filter' : 'transform'   // local change 8: no filter layer when greyscale is off
                 }}
               >
                 <img
                   src={item.image}
                   alt={item.alt || item.label || ''}
                   draggable="false"
+                  decoding="async"
                   className={`block h-full w-full select-none ${fit === 'contain' ? 'object-contain' : 'object-cover'} [-webkit-user-drag:none]`}
                 />
               </span>

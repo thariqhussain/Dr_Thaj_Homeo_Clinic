@@ -20,6 +20,29 @@ const TINT = { metabolic: '#9fd59a', family: '#f6a6c9', skin: '#ffb86b', pain: '
 const pad2 = (v) => String(v).padStart(2, '0');
 const TREATMENTS_OF = Object.fromEntries(CATS.map((c) => [c.id, TREATMENTS.filter((t) => t.cat === c.id)]));
 
+/* every department's photos are small (a few hundred KB in all), so once the first department is on screen they are fetched and decoded
+   in the browser's idle time, nearest department first. Switching department then never waits on the network. */
+const WARM = [];
+function warmImages(from) {
+  if (navigator.connection?.saveData) return () => {};
+  const order = CATS.map((_, i) => i).filter((i) => i !== from).sort((a, b) => Math.abs(a - from) - Math.abs(b - from));
+  const srcs = order.flatMap((i) => (TREATMENTS_OF[CATS[i].id] || []).map((t) => `/assets/treatments/${t.img}`));
+  let n = 0;
+  let handle = 0;
+  const idle = 'requestIdleCallback' in window;
+  const next = () => {
+    if (n >= srcs.length) return;
+    const im = new Image();
+    im.decoding = 'async';
+    im.src = srcs[n++];
+    im.decode?.().catch(() => {});
+    WARM.push(im);                                   // keep a reference so the decoded picture stays cached
+    handle = idle ? window.requestIdleCallback(next, { timeout: 1500 }) : window.setTimeout(next, 120);
+  };
+  handle = idle ? window.requestIdleCallback(next, { timeout: 3000 }) : window.setTimeout(next, 600);
+  return () => { if (idle) window.cancelIdleCallback(handle); else clearTimeout(handle); n = srcs.length; };
+}
+
 function useMedia(query) {
   const [on, setOn] = useState(() => window.matchMedia(query).matches);
   useEffect(() => {
@@ -201,8 +224,8 @@ function Card({ t, cat, hit, big, wide }) {
       style={lit ? { '--tw-ring-color': tint } : undefined}
     >
       <img
-        src={`/assets/treatments/${t.img}`} alt="" loading="lazy" decoding="async" draggable="false"
-        className={`absolute inset-0 h-full w-full object-cover transition-transform duration-[900ms] ease-out group-hover:scale-[1.07] ${big ? '' : ''}`}
+        src={`/assets/treatments/${t.img}`} alt="" decoding="async" draggable="false"
+        className="absolute inset-0 h-full w-full object-cover [@media(hover:hover)]:transition-transform [@media(hover:hover)]:duration-500 [@media(hover:hover)]:ease-out [@media(hover:hover)]:group-hover:scale-[1.05]"
       />
       <span aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,16,13,.05)_25%,rgba(10,16,13,.82)_100%)]" />
       <span aria-hidden="true" className="absolute left-0 top-0 h-1.5 w-full" style={{ background: tint }} />
@@ -210,7 +233,7 @@ function Card({ t, cat, hit, big, wide }) {
         <h3 className={`m-0 mb-3 font-display font-normal leading-[1.1] ${big ? 'text-[clamp(26px,2.6vw,38px)]' : 'text-[clamp(22px,1.8vw,24px)] max-lg:text-[24px]'}`}>{t.title}</h3>
         <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
           {condsOf(t).slice(0, big ? 8 : 4).map((c, ci) => (
-            <li key={c} className={`rounded-full bg-white/18 px-2.5 py-1 text-[12.5px] leading-none backdrop-blur-sm max-lg:px-3 max-lg:py-1.5 max-lg:text-[13.5px] ${ci > 2 ? 'max-sm:hidden' : ''}`} style={{ background: 'rgba(255,255,255,.18)' }}>{c}</li>
+            <li key={c} className={`rounded-full px-2.5 py-1 text-[12.5px] leading-none max-lg:px-3 max-lg:py-1.5 max-lg:text-[13.5px] ${ci > 2 ? 'max-sm:hidden' : ''}`} style={{ background: 'rgba(255,255,255,.18)' }}>{c}</li>
           ))}
         </ul>
       </div>
@@ -266,15 +289,20 @@ export default function Treatments() {
     if (prefersReducedMotion()) return undefined;
     const ctx = gsap.context(() => {
       gsap.from('.tr-head > *', { y: 20, opacity: 0, duration: 0.5, stagger: 0.06, ease: 'power3.out', scrollTrigger: { trigger: root.current, start: 'top 75%', once: true } });
-      gsap.from('.tr-rail, .tr-tabs', { y: 30, opacity: 0, duration: 0.8, ease: 'power3.out', scrollTrigger: { trigger: '.tr-body', start: 'top 85%', once: true } });
+      gsap.from('.tr-rail, .tr-tabs', { y: 20, opacity: 0, duration: 0.5, ease: 'power3.out', scrollTrigger: { trigger: '.tr-body', start: 'top 85%', once: true } });
     }, root);
     return () => ctx.revert();
   }, []);
 
-  /* every time the department changes, its cards deal in */
+  /* the other departments' photos load quietly in the background once this one is up */
+  useEffect(() => warmImages(0), []);
+
+  /* every time the department changes, its cards fade up (opacity + a short rise only). Not on first show: the section's own reveal does that. */
+  const firstDeal = useRef(true);
   useEffect(() => {
+    if (firstDeal.current) { firstDeal.current = false; return undefined; }
     if (prefersReducedMotion() || !root.current) return undefined;
-    const t = gsap.fromTo(root.current.querySelectorAll('.tr-card'), { y: 36, opacity: 0, scale: 0.97 }, { y: 0, opacity: 1, scale: 1, duration: 0.6, stagger: 0.07, ease: 'power3.out', clearProps: 'transform,opacity' });
+    const t = gsap.fromTo(root.current.querySelectorAll('.tr-card'), { y: 16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, stagger: 0.04, ease: 'power2.out', clearProps: 'transform,opacity' });
     return () => t.kill();
   }, [idx]);
 
@@ -284,7 +312,7 @@ export default function Treatments() {
       className="relative scroll-mt-0 overflow-x-clip px-12 pb-24 pt-[96px] max-lg:px-8 max-sm:px-4 max-sm:pb-14 max-sm:pt-[84px]"
     >
       {/* a wash of the department's colour behind everything, changing with the tab */}
-      <span aria-hidden="true" className="pointer-events-none absolute left-1/2 top-24 -z-10 h-[520px] w-[min(1100px,90vw)] -translate-x-1/2 rounded-full opacity-35 blur-[110px] max-lg:h-[360px] max-lg:blur-[70px] [transition:background_.7s]" style={{ background: tint }} />
+      <span aria-hidden="true" className="pointer-events-none absolute left-1/2 top-24 -z-10 h-[520px] w-[min(1100px,90vw)] -translate-x-1/2 max-lg:h-[360px]" style={{ background: `radial-gradient(closest-side, ${tint}59, ${tint}00)` }} />
 
       <div className="mx-auto max-w-[1180px]">
         <div className="tr-head mb-12 grid items-end gap-6 max-sm:mb-8 lg:grid-cols-12 lg:gap-x-10">

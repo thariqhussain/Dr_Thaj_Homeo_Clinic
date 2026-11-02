@@ -85,7 +85,7 @@ const TINTS = {
 const SPARK_SPEED = 2600;   // px of fall over the whole spiral, for sp = 1
 const SPARK_COLORS = ['#f2c14e', '#9fd59a', '#f6a6c9', '#7fb7e6', '#ffb86b', '#c3a6e8'];
 const SPARK_KINDS = ['star', 'tablet', 'leaf', 'bottle', 'capsule', 'pellets', 'star', 'dropper', 'tablet', 'leaf', 'capsule', 'bottle'];
-const SPARKS = Array.from({ length: 9 }, (_, i) => {
+const SPARKS = Array.from({ length: 4 }, (_, i) => {
   const kind = SPARK_KINDS[i % SPARK_KINDS.length];
   const big = kind === 'bottle' || kind === 'dropper';
   return {
@@ -121,23 +121,12 @@ const SparkShape = ({ d }) => {
   }
 };
 
-/* faint botanical sprigs in two corners of the dark panel (the same line-art as the hero) */
-const SPRIG_STEM = 'M46 432 C8 300 210 236 150 12';
-const SPRIG_LEAVES = [[42.8, 379.9, -132.6, 0.97], [50.4, 352.3, -17.1, 0.92], [64.9, 322.1, -112.8, 0.86], [83.5, 291.6, -5.1, 0.81], [104.0, 260.1, -109.4, 0.76], [124.1, 226.5, -9.1, 0.7], [141.8, 189.7, -119.9, 0.65], [154.9, 148.8, -25.1, 0.59], [161.0, 102.8, -139.7, 0.54], [150.0, 12.0, -105.0, 0.5]];
-const SPRIG_LEAF = 'M0 0C8 -9 26 -10 40 0C26 10 8 9 0 0Z M0 0L34 0';
-const SpSprig = ({ className = '' }) => (
-  <svg viewBox="0 0 240 440" fill="none" stroke="#5a8a6a" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-    <path d={SPRIG_STEM} />
-    {SPRIG_LEAVES.map(([x, y, r, sc], i) => <path key={i} d={SPRIG_LEAF} transform={`translate(${x} ${y}) rotate(${r}) scale(${sc})`} />)}
-  </svg>
-);
-
 /* one wide row of treatment words across the middle of the screen, behind the doctor and the cards, sliding sideways with the scroll */
 const BAND_WORDS = ['Thyroid', 'Asthma', 'Migraine', 'Joint Pain', 'Eczema', 'Digestive Care', 'Women’s Health', 'Child Health'];
 const BAND_SPEED = 2600;   // px of drift over the whole spiral
 
 const DECO_COLORS = ['#f2c14e', '#7fb7e6', '#f08a8a', '#9fd59a', '#c3a6e8', '#f6a6c9', '#ffb86b'];
-const DECO = Array.from({ length: 11 }, (_, i) => ({
+const DECO = Array.from({ length: 6 }, (_, i) => ({
   kind: 'star',
   color: DECO_COLORS[(i * 2 + (i % 3)) % DECO_COLORS.length],
   h: ((i * 7) % 11) / 10,
@@ -235,10 +224,7 @@ export default function DoctorProfile() {
     const n = order.length;
     const decos = [...sec.querySelectorAll('.sp-deco')];
     const sparks = [...sec.querySelectorAll('.sp-spark')];
-    const dark = sec.querySelector('.sp-dark');
     const band = sec.querySelector('.sp-band');
-    const glow = sec.querySelector('.sp-glow');
-    const rings = sec.querySelector('.sp-rings');
     const bgEl = sec.querySelector('.sp-bg');
     const areas = sec.querySelector('.dp-areas');
     const st = { p: 0 };          // the pinned spiral (0…1)
@@ -361,20 +347,6 @@ export default function DoctorProfile() {
       const showPhoto = u > HANDOVER;
       if (showPhoto !== photoShown) { photoShown = showPhoto; setPhotoOn(showPhoto); }
       gsap.set(bgEl, { opacity: smooth(clamp(p / 0.12)) });
-      /* the glow behind the doctor: fades in as the spiral opens, breathes out a little, and is gone once the cards have settled */
-      if (glow) {
-        const gi = smooth(clamp(p / 0.15));
-        const go = 1 - smooth(clamp((p - 0.68) / 0.22));
-        gsap.set(glow, { opacity: gi * go, scale: 0.75 + 0.35 * gi, xPercent: -50, yPercent: -50, top: m.pcy - T });
-      }
-      /* the faint rings: in with the spiral, growing a little as it turns, out as the areas of care appear (a static SVG, only its
-         opacity and scale change) */
-      if (rings) {
-        gsap.set(rings, {
-          opacity: smooth(clamp(p / 0.1)) * (1 - smooth(clamp((p - 0.74) / 0.2))),
-          scale: 0.8 + 0.28 * smooth(p), xPercent: -50, yPercent: -50, top: m.pcy - T,
-        });
-      }
       /* the falling pieces: each one falls with the scroll along its lane (left or right of the spiral), swaying a little and turning,
          fading at the top and bottom of the screen. In with the spiral, out as it settles. Transforms and opacity only. */
       if (sparks.length && m.W >= 768) {
@@ -394,9 +366,6 @@ export default function DoctorProfile() {
       } else if (sparks.length) {
         gsap.set(sparks, { opacity: 0 });
       }
-      /* the mint-to-lilac panel: in with the spiral, out again as the cards settle (a little before the heading's gold card has faded,
-         so the heading is never dark text on a dark panel) */
-      if (dark) gsap.set(dark, { opacity: smooth(clamp(p / 0.1)) * (1 - smooth(clamp((p - 0.58) / 0.2))) });
       /* the word band: slides sideways with the scroll, in with the spiral and out as it settles (transform + opacity only) */
       if (band && m.bandW) {
         gsap.set(band, { opacity: smooth(clamp(p / 0.1)) * (1 - smooth(clamp((p - 0.72) / 0.2))), top: m.pcy - T, yPercent: -50 });
@@ -489,10 +458,7 @@ export default function DoctorProfile() {
         ctx.revert();
         gsap.set(leaving, { clearProps: 'transform,opacity' });
         gsap.set(decos, { clearProps: 'transform,opacity,zIndex' });
-        if (glow) gsap.set(glow, { clearProps: 'transform,opacity' });
-        if (rings) gsap.set(rings, { clearProps: 'transform,opacity' });
         gsap.set(sparks, { clearProps: 'transform,opacity' });
-        if (dark) gsap.set(dark, { clearProps: 'opacity' });
         if (band) { gsap.set(band, { clearProps: 'opacity,top,transform' }); gsap.set(band.firstElementChild, { clearProps: 'transform' }); }
         gsap.set(stageBox.current, { clearProps: 'opacity' });
         heroCut.style.visibility = '';
@@ -567,14 +533,6 @@ export default function DoctorProfile() {
             <img ref={heroFlyer} src={DOCTOR_IMG} alt="" aria-hidden="true" draggable="false" className={light ? 'pointer-events-none fixed left-0 top-0 z-[40] max-w-none select-none' : `${FLYER_CLASS} !z-[5]`} style={light ? { ...FLYER_STYLE, filter: 'none' } : FLYER_STYLE} />,
             heroEl,
           )}
-          {/* the spiral's backdrop: a light mint-to-lilac gradient with faint sprigs in two corners */}
-          <div
-            aria-hidden="true" className="sp-dark pointer-events-none absolute inset-x-2.5 inset-y-0 overflow-hidden rounded-[18px] opacity-0"
-            style={{ background: 'linear-gradient(135deg, #cdebdc 0%, #dcebe9 34%, #e4e2f6 68%, #ecd9f2 100%)' }}
-          >
-            <SpSprig className="absolute -left-3 bottom-[4%] h-[52%] w-auto opacity-[.3] max-md:h-[34%]" />
-            <SpSprig className="absolute -right-3 top-[6%] h-[44%] w-auto rotate-180 opacity-[.24] max-md:hidden" />
-          </div>
           {/* a wide row of treatment words across the middle, behind everything (slides sideways with the scroll) */}
           <div
             aria-hidden="true"
@@ -596,20 +554,6 @@ export default function DoctorProfile() {
               <SparkShape d={d} />
             </span>
           ))}
-          {/* faint concentric rings around the doctor, like orbits for the spiral to follow (one static SVG) */}
-          <svg
-            aria-hidden="true" viewBox="0 0 100 100" fill="none" stroke="#5a8a6a"
-            className="sp-rings pointer-events-none absolute left-1/2 top-[56svh] z-[1] aspect-square w-[min(150vw,1100px)] opacity-0"
-          >
-            <circle cx="50" cy="50" r="19" strokeWidth="1" vectorEffect="non-scaling-stroke" strokeOpacity=".3" />
-            <circle cx="50" cy="50" r="31" strokeWidth="1" vectorEffect="non-scaling-stroke" strokeOpacity=".26" strokeDasharray="2 7" strokeLinecap="round" />
-            <circle cx="50" cy="50" r="43" strokeWidth="1" vectorEffect="non-scaling-stroke" strokeOpacity=".18" />
-          </svg>
-          {/* a soft glow in the card colours behind the doctor, so the spiral has something to swirl around (one static gradient) */}
-          <div
-            aria-hidden="true" className="sp-glow pointer-events-none absolute left-1/2 top-[56svh] z-[1] aspect-square w-[min(110vw,820px)] rounded-full opacity-0"
-            style={{ background: 'radial-gradient(circle, rgba(242,193,78,.42) 0%, rgba(240,138,138,.26) 24%, rgba(127,183,230,.22) 46%, rgba(195,166,232,.14) 62%, rgba(195,166,232,0) 72%)' }}
-          />
           {/* sparkle stars and colour lines that swirl with the cards (see DECO) */}
           {DECO.map((d, i) => (
             <span key={i} aria-hidden="true" className="sp-deco pointer-events-none absolute left-0 top-0 block opacity-0 will-change-transform">
@@ -651,7 +595,7 @@ export default function DoctorProfile() {
               return (
                 <li
                   key={q.title}
-                  className={`dp-tile sp-real relative flex min-h-[260px] flex-col justify-between gap-10 rounded-[18px] bg-paper p-8 max-lg:min-h-[200px] max-lg:gap-6 max-lg:p-5 max-sm:min-h-[150px] max-sm:gap-3 max-sm:rounded-[14px] max-sm:p-3.5 ${spiral ? 'opacity-0' : ''}`}
+                  className={`dp-tile sp-real relative max-sm:[&:last-child:nth-child(odd)]:col-span-2 flex min-h-[260px] flex-col justify-between gap-10 rounded-[18px] bg-paper p-8 max-lg:min-h-[200px] max-lg:gap-6 max-lg:p-5 max-sm:min-h-[150px] max-sm:gap-3 max-sm:rounded-[14px] max-sm:p-3.5 ${spiral ? 'opacity-0' : ''}`}
                 >
                   {spiral && <span aria-hidden="true" className="sp-tint pointer-events-none absolute inset-0 -z-10 rounded-[18px] opacity-0" style={{ background: TINTS.tiles[qi % TINTS.tiles.length] }} />}
                   <p className="font-display text-[clamp(30px,4.6vw,64px)] font-normal leading-none tracking-[-.02em]">{figure}</p>
