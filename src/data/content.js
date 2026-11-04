@@ -53,6 +53,11 @@ export const TREATMENT_CATEGORIES = [
     'Kidney stone', 'Gall bladder stone', 'Cystitis',
     'Gynaecological, cervical, gall bladder & genito-urinary cancer care',
   ] },
+  { id: 'therapy', label: 'Cupping & Acupuncture Therapy', conditions: [
+    'Back pain', 'Neck pain', 'Shoulder pain', 'Frozen shoulder', 'Sciatica',
+    'Muscle spasm', 'Muscle tension', 'Cervical spondylosis',   // confirm
+    'Stress & insomnia',   // confirm
+  ] },
 ];
 
 /* Each tile opens a panel listing its conditions: `items` if given, otherwise `sub` split on commas. */
@@ -74,6 +79,10 @@ export const TREATMENTS = [
   { cat: 'systems', img: 'treatment12.webp', chip: 'Digestive', title: 'Digestive Health', sub: 'Heart Burn, Indigestion, Gastritis, Hyperacidity, IBS, Fatty Liver, Fissure in Ano' },
   { cat: 'systems', img: 'treatment16.webp', chip: 'Stones', title: 'Kidney & Gall Bladder Stones', sub: 'Kidney Stone, Gall Bladder Stone, Cystitis' },
   { cat: 'systems', img: 'treatment13.webp', chip: 'Tumors', title: 'Cancer & Tumor Care', sub: 'Gynaecological, Cervical, Gall Bladder & Genito-Urinary Cancer', items: ['Gynaecological, cervical, gall bladder & genito-urinary cancer care'] },
+  { cat: 'therapy', img: 'treatment20.webp', chip: 'Cupping', title: 'Cupping Therapy', sub: 'Back Pain, Neck Pain, Muscle Tension, Muscle Spasm' },   // confirm the titles / conditions against the photos
+  // { cat: 'therapy', img: 'treatment21.webp', chip: 'Acupuncture', title: 'Acupuncture', sub: 'Sciatica, Cervical Spondylosis, Stress & Insomnia' },
+  { cat: 'therapy', img: 'treatment22.webp', chip: 'Back & neck', title: 'Back & Neck Pain Relief', sub: 'Back Pain, Neck Pain, Sciatica' },
+  { cat: 'therapy', img: 'treatment23.webp', chip: 'Shoulder', title: 'Shoulder & Muscle Therapy', sub: 'Shoulder Pain, Frozen Shoulder, Muscle Spasm' },
 ];
 
 /* How many tiles each category shows → which size recipe fills the 2-row grid */
@@ -374,4 +383,3 @@ export const DOCTOR_CARD = {
   degrees: QUALIFICATIONS.map((q) => q.title).join(' · '),
   reg: '',
 };
-

@@ -3,7 +3,7 @@ import { gsap } from '../lib/gsap';
 import { TREATMENTS, TREATMENT_CATEGORIES as CATS } from '../data/content';
 import { prefersReducedMotion } from '../lib/utils';
 
-/* Treatments — five departments, each with its own colour.
+/* Treatments — six departments, each with its own colour.
    Desktop: a rail of big department names on the left (number, name, how many treatments; the active one is lit in its colour with a
    sliding bar), the department's treatments on the right as photo cards (the first one large; the conditions each covers are chips
    that appear on the photo), then every condition in the department as a cloud of chips.
@@ -13,10 +13,10 @@ import { prefersReducedMotion } from '../lib/utils';
 
 const FIND = CATS.flatMap((c, ci) => (c.conditions || []).map((name) => ({ name, ci })));
 const TOTAL = new Set(FIND.map((f) => f.name.toLowerCase())).size;
-const TAB_LABEL = { metabolic: 'Metabolic', family: 'Women & children', skin: 'Skin & hair', pain: 'Pain & mind', systems: 'Body systems' };
+const TAB_LABEL = { metabolic: 'Metabolic', family: 'Women & children', skin: 'Skin & hair', pain: 'Pain & mind', systems: 'Body systems', therapy: 'Cupping & acupuncture' };
 const TABS = CATS.map((c) => ({ label: TAB_LABEL[c.id] || c.label }));
 /* one colour per department (the same family as the colours in the doctor section's tornado) */
-const TINT = { metabolic: '#9fd59a', family: '#f6a6c9', skin: '#ffb86b', pain: '#7fb7e6', systems: '#c3a6e8' };
+const TINT = { metabolic: '#9fd59a', family: '#f6a6c9', skin: '#ffb86b', pain: '#7fb7e6', systems: '#c3a6e8', therapy: '#7fd1c4' };
 const pad2 = (v) => String(v).padStart(2, '0');
 const TREATMENTS_OF = Object.fromEntries(CATS.map((c) => [c.id, TREATMENTS.filter((t) => t.cat === c.id)]));
 

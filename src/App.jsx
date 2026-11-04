@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useState } from 'react';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
+import AreasOfCare from './components/AreasOfCare';
 import { ScrollTrigger } from './lib/gsap';
 import { skipIntro } from './lib/intro';
 import { readSavedScroll, startScrollMemory } from './lib/scrollRestore';
@@ -24,6 +25,7 @@ const Gallery = lazy(() => import('./components/Gallery'));
 const Ceremony = lazy(() => import('./components/Ceremony'));
 const Pharmacy = lazy(() => import('./components/Pharmacy'));
 const FAQ = lazy(() => import('./components/FAQ'));
+const ClinicProfileFrame = lazy(() => import('./components/ClinicProfileFrame'));
 const Booking = lazy(() => import('./components/Booking'));
 const Footer = lazy(() => import('./components/Footer'));
 const FloatingContact = lazy(() => import('./components/FloatingContact'));
@@ -31,7 +33,9 @@ const FloatingContact = lazy(() => import('./components/FloatingContact'));
 /* page order, top to bottom: [component, placeholder height while it is not loaded yet, the section's element id] */
 const MAIN_SECTIONS = [
   [DoctorProfile, '130svh', 'doctors'],
+  [ClinicProfileFrame, 'calc(100svh - 80px)', 'clinic-profile'],
   [ClinicAdmin, '220svh', 'admin'],
+  [AreasOfCare, '220svh', 'areas-of-care'],
   [AboutStory, '280svh', 'about'],
   [Treatments, '130svh', 'treatments'],
   [Booking, '80svh', 'booking'],

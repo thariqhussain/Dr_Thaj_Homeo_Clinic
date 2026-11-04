@@ -469,7 +469,7 @@ export default function Booking() {
             <ClinicStatus />
           </div>
           <img
-            src="/assets/doctors/clinic_logo_400.webp" alt="Dr. Thaj Homoeo Clinic logo" width="400" height="314" decoding="async" draggable="false"
+            src="/assets/doctors/clinic_logo.webp" alt="Dr. Thaj Homoeo Clinic logo" width="400" height="314" decoding="async" draggable="false"
             className={`block w-auto flex-none select-none ${!done && step === 0 ? 'h-[clamp(120px,24svh,210px)] max-sm:h-[72px]' : 'h-[72px] max-sm:h-11'}`}
           />
         </div>

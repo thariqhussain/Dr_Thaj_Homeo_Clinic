@@ -43,11 +43,12 @@ const PIN_LENGTH = 3;         // how much scrolling the pinned spiral takes, in 
 const SETTLE = 0.88;
 const CARD_FEET = 0.79;       // where the badge's photo ends (its feet), as a fraction of the viewport height
 const DOCTOR_H = 0.75;        // the doctor's height at the middle of the hero, as a fraction of the viewport height (feet on the bottom edge)
-const CARD_H = 0.33;          // the landed photo's height as a fraction of the viewport height
+const FACE_GROW = 1200 / 1060;   // the badge's photo got this much taller (DOCTOR_FACE_H in BadgeStage.jsx: 1060 → 1200); the landing follows
+const CARD_H = 0.375 * FACE_GROW;   // the landed photo's height as a fraction of the viewport height
 /* phones / tablets: the badge sits in its own box, and the card inside it shrinks relative to the box as the box gets taller (measured at
    354px and 519px tall boxes). These give where the photo's feet end and how tall the photo is, as fractions of the box's height. */
 const inlineFeet = () => 0.943;
-const inlinePhoto = (h) => Math.min(0.47, Math.max(0.38, 0.466 - 0.00026 * (h - 354)));
+const inlinePhoto = (h) => FACE_GROW * Math.min(0.47, Math.max(0.38, 0.466 - 0.00026 * (h - 354)));
 const TAU = Math.PI * 2;
 const clamp = (v) => Math.min(1, Math.max(0, v));
 const smooth = (t) => t * t * (3 - 2 * t);
@@ -145,7 +146,6 @@ const FLYER_STYLE = { visibility: 'hidden', transformOrigin: '50% 100%', filter:
 
 const HANDOVER = 0.995;       // how far through her landing the badge's own photo takes over from the flying copy (she is virtually still by then)
 
-const DEEP = '#2f5a3f';   // the one deep accent field: the action
 
 /* does the hero fit on the screen? Only then can it be pinned while the doctor travels (a taller hero would be cut off) */
 const heroFitsNow = () => {
@@ -176,7 +176,7 @@ export default function DoctorProfile() {
   const light = spiral && (!heroFits || compactNow);   // phones / tablets never pin the hero: a pinned hero jumps about on touch screens, so there the doctor is lifted off the hero card and flown instead   // the hero is taller than the screen (most phones, small tablets): it cannot be pinned, so the hero's own doctor is lifted off the page and flown instead
   const heroEl = spiral ? (light ? document.body : document.getElementById('home')) : null;
 
-  /* plain entrance for the areas of care (and for everything when the spiral is off) */
+  /* plain entrance for the heading and tiles (when the spiral is off) */
   useEffect(() => {
     if (prefersReducedMotion()) return undefined;
     const ctx = gsap.context(() => {
@@ -189,7 +189,6 @@ export default function DoctorProfile() {
         rise('.dp-head', '.dp-head > *');
         rise('.dp-tiles', '.dp-tile', 0.12);
       }
-      if (!spiral) rise('.dp-areas', '.dp-areas-copy > *, .dp-row', 0.09);
     }, section);
     return () => ctx.revert();
   }, [spiral]);
@@ -226,7 +225,6 @@ export default function DoctorProfile() {
     const sparks = [...sec.querySelectorAll('.sp-spark')];
     const band = sec.querySelector('.sp-band');
     const bgEl = sec.querySelector('.sp-bg');
-    const areas = sec.querySelector('.dp-areas');
     const st = { p: 0 };          // the pinned spiral (0…1)
     const sa = { tA: 0 };         // the hero phase (0…1), eased so wheel steps never make the doctor judder
     const m = {};                 // measurements, refreshed whenever ScrollTrigger refreshes
@@ -372,8 +370,6 @@ export default function DoctorProfile() {
         gsap.set(band.firstElementChild, { x: -((p * BAND_SPEED) % m.bandW) });
       }
       if (dbgEl) dbgEl.textContent = `v6 ${compact ? 'compact' : 'desktop'} ${light ? 'light' : 'pinned'} y${Math.round(window.scrollY)} tA${tA.toFixed(2)}`;   // DBG
-      const av = smooth(clamp((p - 0.88) / 0.12));              // the areas of care appear once the cards have settled
-      gsap.set(areas, { opacity: av, y: (1 - av) * 24 });
 
       /* the tornado: every card has its own colour while it spins, and loses it as it settles */
       const small = m.W < 700;
@@ -607,39 +603,6 @@ export default function DoctorProfile() {
               );
             })}
           </ol>
-        </div>
-
-        {/* ── Areas of care: the heading, a sentence and the one action on the left; the whole list on the right ── */}
-        <div className={`dp-areas mt-24 grid gap-10 lg:mt-32 lg:grid-cols-[.8fr_1.2fr] lg:gap-14 ${spiral ? 'opacity-0' : ''}`}>
-          <div className="dp-areas-copy self-start">
-            <h2 className="font-display text-[clamp(34px,4.6vw,64px)] font-normal leading-[1.04] tracking-[-.02em]">Areas of care</h2>
-            <p className="mt-6 max-w-[420px] text-[18px] leading-[1.6]">
-              Personalised homoeopathic care for thyroid, respiratory, digestive, joint, women’s and children’s health.
-            </p>
-            <a
-              href="#treatments"
-              className="mt-8 inline-flex items-center rounded-full px-6 py-3 text-[15px] font-semibold text-white no-underline transition-colors duration-200 hover:!bg-p9
-                         focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a3f]"
-              style={{ backgroundColor: DEEP }}
-            >
-              See all treatments
-            </a>
-          </div>
-
-          {/* one panel, rows told apart by a step in tone */}
-          <div className="overflow-hidden rounded-[18px] bg-paper">
-            {CARE_AREAS.map((a) => (
-              <article
-                key={a.title}
-                className="dp-row grid gap-3 px-8 py-7 even:bg-[#eef4ec] sm:grid-cols-[minmax(0,.9fr)_minmax(0,1.1fr)] sm:gap-8 max-sm:px-6 max-sm:py-6"
-              >
-                <h3 className="font-display text-[28px] font-normal leading-[1.15]">{a.title}</h3>
-                <ul className="flex flex-col gap-1 text-[18px] leading-[1.5]">
-                  {a.chips.map((c) => <li key={c}>{c}</li>)}
-                </ul>
-              </article>
-            ))}
-          </div>
         </div>
 
       </div>

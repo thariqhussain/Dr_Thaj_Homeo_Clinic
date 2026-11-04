@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { gsap, ScrollTrigger } from '../lib/gsap';
 import { ABOUT_STORY } from '../data/content';
 import { isLowPower, prefersReducedMotion } from '../lib/utils';
@@ -77,9 +77,11 @@ const lowPower = isLowPower;
 function readLayout() {
   const w = window.innerWidth;
   const h = window.innerHeight;
-  if (w < 640) return { cardHeight: 0.46, gap: 10, step: 28, phone: true };
-  if (w < 1024) return { cardHeight: h > w ? 0.44 : 0.46, gap: 12, step: 26, phone: false };
-  return { cardHeight: h < 700 ? 0.42 : 0.48, gap: 14, step: 24, phone: false };
+  /* phones / tablets: cardHeight is a share of the LANE (the stage minus the room kept for the two text cards), so it is close to 1 */
+  if (w < 640) return { cardHeight: 0.94, gap: 10, step: 28, phone: true };
+  if (w < 1024) return { cardHeight: 0.94, gap: 12, step: 26, phone: false };
+  /* desktop: bigger photos than before (originally 0.42 / 0.48). Shorter screens stay smaller so the two text cards still fit above and below */
+  return { cardHeight: h < 700 ? 0.44 : h < 820 ? 0.54 : 0.62, gap: 14, step: 24, phone: false };
 }
 function useLayout() {
   const [layout, setLayout] = useState(readLayout);
@@ -106,6 +108,31 @@ function useMedia(query) {
   return on;
 }
 
+/* Phones / tablets: instead of centring the photo in the whole stage (which leaves a big empty gap under the heading, because the
+   description card below the photo needs far more room than the title card above it), the photo row lives in a "lane" whose top and
+   bottom insets are the measured heights of the two cards. The photo fills the lane, the title card sits just above it and the
+   description card just below it, so everything is packed up under the heading. `pill` = extra room for the dots on phones. */
+function useReserve(enabled, offset, pill) {
+  const topRef = useRef(null);
+  const botRef = useRef(null);
+  const [r, setR] = useState({ t: 72, b: 170 });
+  useLayoutEffect(() => {
+    if (!enabled) return undefined;
+    const read = () => {
+      const t = (topRef.current?.offsetHeight ?? 0) + offset + 6;
+      const b = (botRef.current?.offsetHeight ?? 0) + offset + 6 + pill;
+      setR((o) => (Math.abs(o.t - t) < 2 && Math.abs(o.b - b) < 2 ? o : { t, b }));
+    };
+    read();
+    const ro = new ResizeObserver(read);
+    if (topRef.current) ro.observe(topRef.current);
+    if (botRef.current) ro.observe(botRef.current);
+    window.addEventListener('resize', read);
+    return () => { ro.disconnect(); window.removeEventListener('resize', read); };
+  }, [enabled, offset, pill]);
+  return { topRef, botRef, t: enabled ? r.t : 0, b: enabled ? r.b : 0 };
+}
+
 /* `shown` trails `active` by `ms` so the old text can fade out before the new one rises in */
 function useSwap(active, ms = 220) {
   const [shown, setShown] = useState(active);
@@ -121,10 +148,10 @@ function useSwap(active, ms = 220) {
 
 /* One card, horizontally centred (inset-x-0 + mx-auto, no transform, so GSAP can animate it freely).
    Deep green with white text so it reads on the light page. `tab` is the coloured plate behind its left edge. */
-function StoryCard({ active, dir, tab, delay = 0, style, className = '', count, children }) {
+function StoryCard({ active, dir, tab, delay = 0, style, className = '', count, cardRef, children }) {
   const [shown, leaving] = useSwap(active);
   return (
-    <div className={`as-story-card pointer-events-none absolute inset-x-0 z-10 mx-auto ${className}`} style={style}>
+    <div ref={cardRef} className={`as-story-card pointer-events-none absolute inset-x-0 z-10 mx-auto ${className}`} style={style}>
       <div className="relative isolate">
         <span
           aria-hidden="true"
@@ -166,10 +193,13 @@ export default function AboutStory() {
   const [dir, setDir] = useState(1);                // 1 = moving forward (scrolling down), -1 = back
   const [canGL] = useState(() => hasWebGL2() && !lowPower());
   const short = useMedia('(max-height: 519px)');    // landscape phones: no room for the pinned layout
+  const desktop = useMedia('(min-width: 1024px)');   // desktop only: no parallax and no lens (soft edges) in the carousel
   const strip = useMedia('(max-width: 639px)');     // phones: a plain horizontal row of photos (no WebGL) instead of the FlexCarousel
   const pinned = !short && (strip || canGL);        // phones always get the pinned story (their strip needs no WebGL)
   const stripRef = useRef(null);                    // phones: the row of photos that the scroll slides sideways
   const { cardHeight, gap, step, phone } = useLayout();
+  const cardOffset = desktop ? 2 : phone ? 8 : 12;      // px between a photo edge and its text card
+  const lane = useReserve(pinned && !desktop, cardOffset, phone ? 36 : 0);
 
   const { chapters, photos } = useMemo(() => buildStory(ABOUT_STORY), []);
   const n = photos.length;
@@ -229,13 +259,13 @@ export default function AboutStory() {
     <header className="as-head grid items-end gap-3 lg:grid-cols-[1.5fr_.7fr] lg:gap-14">
       <h2
         id="as-title"
-        className="font-display text-[clamp(26px,min(4.6vw,7.2svh),68px)] font-normal leading-[1.04] tracking-[-.02em] text-p9"
+        className="font-display text-[clamp(32px,9vw,56px)] font-normal leading-[1.04] tracking-[-.02em] text-p9 lg:text-[clamp(26px,min(4.6vw,7.2svh),68px)]"
       >
         <span className="as-line block overflow-hidden pb-[.12em] -mb-[.12em]"><span className="block">Care that sees</span></span>
         <span className="as-line block overflow-hidden pb-[.12em] -mb-[.12em]"><span className="block">the whole person</span></span>
       </h2>
-      <p className="as-intro max-w-[400px] text-[15px] leading-[1.6] text-p9 max-sm:hidden [@media(max-height:700px)]:hidden lg:pb-2">
-        Dr. Thaj Homoeo Clinic in Minjur, Chennai, pairs homoeopathic medicine with time to listen.
+      <p className="as-intro max-w-[460px] text-[17px] leading-[1.6] lg:max-w-[400px] lg:text-[15px] text-p9 max-sm:hidden [@media(max-height:700px)]:hidden lg:pb-2">
+        Doctor Name Homoeo Clinic in Minjur, Chennai, pairs homoeopathic medicine with time to listen.
       </p>
     </header>
   );
@@ -254,6 +284,8 @@ export default function AboutStory() {
 
           {/* stage: the full width of the page. Carousel behind, cards on its centre line. */}
           <div className="as-stage relative mt-2 min-h-0 flex-1 sm:mt-3">
+            {/* the lane: on phones / tablets its top and bottom insets are the heights of the two text cards (desktop: the whole stage) */}
+            <div className="absolute inset-x-0" style={{ top: lane.t, bottom: lane.b }}>
             {/* pointer-events-none: the carousel never eats wheel / touch, so the page scrolls from anywhere on it */}
             <div className="pointer-events-none absolute inset-0">
               {strip ? (
@@ -274,6 +306,8 @@ export default function AboutStory() {
                 items={items}
                 controlRef={ctl}
                 interactive={false}
+                lens={!desktop}
+                parallax={!desktop}
                 preset="liquid"
                 fit="portrait"
                 cardHeight={cardHeight}
@@ -292,10 +326,10 @@ export default function AboutStory() {
 
             {/* TOP card: chapter heading, sitting right on top of the centred photo */}
             <StoryCard
-              active={chapter} dir={dir} count={chapters.length}
+              active={chapter} dir={dir} count={chapters.length} cardRef={lane.topRef}
               tab={TABS[chapter % TABS.length]}
               className="w-[min(500px,calc(100%-3rem))] sm:w-[min(500px,calc(100%-3.5rem))]"
-              style={{ bottom: `calc(${edge}% + ${phone ? 8 : 12}px)` }}
+              style={{ bottom: `calc(${edge}% + ${cardOffset}px)` }}
             >
               {(c) => (
                 <h3 className="font-display text-[clamp(17px,min(2.3vw,3.7svh),32px)] font-normal leading-[1.15] text-white">
@@ -306,10 +340,10 @@ export default function AboutStory() {
 
             {/* BOTTOM card: chapter description, hanging right under the centred photo */}
             <StoryCard
-              active={chapter} dir={dir} delay={90} count={chapters.length}
+              active={chapter} dir={dir} delay={90} count={chapters.length} cardRef={lane.botRef}
               tab={TABS[(chapter + 2) % TABS.length]}
               className="w-[min(540px,calc(100%-3rem))] sm:w-[min(540px,calc(100%-3.5rem))]"
-              style={{ top: `calc(${edge}% + ${phone ? 8 : 12}px)` }}
+              style={{ top: `calc(${edge}% + ${cardOffset}px)` }}
             >
               {(c) => (
                 <>
@@ -326,6 +360,7 @@ export default function AboutStory() {
                 </>
               )}
             </StoryCard>
+            </div>
 
             {/* photo counter + dots in a dark pill, readable over any photo. Each dot has a 24px tap area. */}
             <div className="absolute right-1 top-1/2 z-20 flex -translate-y-1/2 flex-col items-center gap-1 rounded-full bg-black/50 px-1.5 py-2.5 max-sm:inset-x-auto max-sm:bottom-2 max-sm:left-1/2 max-sm:right-auto max-sm:top-auto max-sm:-translate-x-1/2 max-sm:translate-y-0 max-sm:flex-row max-sm:gap-2 max-sm:px-3 max-sm:py-1.5 sm:right-5 sm:gap-1.5 sm:px-2 sm:py-3">

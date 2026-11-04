@@ -721,6 +721,7 @@ const Lanyard = ({
   interactive = true,
   intro = true,
   onFaceClick,           // (face: 'front' | 'back', x, y, probe) → true if that spot of the face is a link; x, y are pixels of the face image. probe = true: only ask, don't act
+  touchScroll = false,   // touch screens: a swipe that starts on the card still scrolls the page (tap = flip, sideways drag = swing)
   passThrough = false,   // big canvas that only catches the mouse while it is over the card (links underneath stay clickable)
   maxDpr = 2,            // cap on the canvas pixel ratio; lower it when the canvas is large
   className = '',
@@ -742,6 +743,7 @@ const Lanyard = ({
     size,
     anchor,
     passThrough,
+    touchScroll,
     maxDpr,
     strapLength,
     strapImage,
@@ -1255,7 +1257,7 @@ const Lanyard = ({
     };
 
     const onTouchStart = event => {
-      if (!settingsRef.current.interactive || event.touches.length !== 1) return;
+      if (!settingsRef.current.interactive || settingsRef.current.touchScroll || event.touches.length !== 1) return;
       toPointer(event.touches[0]);
       if (pickCard()) event.preventDefault();
     };

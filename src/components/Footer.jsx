@@ -7,8 +7,10 @@ import { prefersReducedMotion } from '../lib/utils';
 
 const MARQUEE = ['Thyroid', 'Asthma', 'Migraine', 'Joint Pain', 'Eczema', 'Digestive Care', "Women's Health", 'Child Health'];
 const WORD = 'Dr. Thaj';
-/* consultation days + both sessions, read from content.js → PHARMACY.hours */
-const CONSULT = PHARMACY.hours.find((h) => h.key === 'consultation');
+/* consultation + pharmacy hours (days and sessions), read from content.js → PHARMACY.hours. A row with no time is skipped.
+   When every row runs on the same days, the days are shown once under the heading to save space. */
+const HOURS = PHARMACY.hours.filter((h) => h.time);
+const SAME_DAYS = HOURS.length > 0 && HOURS.every((h) => h.days === HOURS[0].days);
 
 const colHead = 'mb-3 text-xs font-semibold uppercase tracking-[.14em] text-mint';
 
@@ -60,7 +62,7 @@ export default function Footer() {
         <div className="flex flex-col gap-3 lg:items-end">
           <a
             ref={cta} href="#booking"
-            className="ft-cta-btn relative inline-flex items-center gap-3.5 overflow-hidden rounded-full bg-white py-[5px] pl-[26px] pr-[5px] text-[15px] font-semibold text-p9 no-underline will-change-transform [isolation:isolate]"
+            className="ft-cta-btn relative inline-flex items-center gap-3.5 overflow-hidden rounded-full bg-white py-[5px] pl-[26px] pr-[5px] text-[15px] font-semibold text-p9 no-underline will-change-transform [isolation:isolate] max-lg:w-full max-lg:justify-between"
           >
             <span>Book appointment</span>
             <i aria-hidden="true" className="grid h-10 w-10 place-items-center rounded-full bg-p9 pb-0.5 text-xl not-italic leading-none text-white [transition:transform_.4s_cubic-bezier(.34,1.4,.64,1)]">&rarr;</i>
@@ -68,12 +70,13 @@ export default function Footer() {
           <a
             href={`tel:${CLINIC_PHONE.tel}`} aria-label={`Call us on ${CLINIC_PHONE.display}`}
             className="inline-flex items-center gap-2.5 py-2 text-[15px] font-medium text-white/85 no-underline transition-colors duration-200 hover:text-accent-light
+                       max-lg:min-h-12 max-lg:w-full max-lg:justify-center max-lg:rounded-full max-lg:border max-lg:border-white/30 max-lg:bg-white/10 max-lg:px-6 max-lg:py-0 max-lg:font-semibold max-lg:text-white max-lg:active:bg-white/20 max-lg:hover:bg-white/20 max-lg:hover:text-white
                        focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-light"
           >
             <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.15 12 19.79 19.79 0 0 1 1.08 3.4 2 2 0 0 1 3.05 1.22h3a2 2 0 0 1 2 1.72c.127.96.36 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 9.07a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.34 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
             </svg>
-            Or call {CLINIC_PHONE.display}
+            Call {CLINIC_PHONE.display}
           </a>
         </div>
       </div>
@@ -97,11 +100,19 @@ export default function Footer() {
           </ul>
         </nav>
 
-        {CONSULT && (
-          <div className="rounded-[20px] border border-white/[.12] bg-white/[.06] p-5">
-            <h3 className={colHead}>Consultation hours</h3>
-            <p className="text-[15px] leading-[1.7] text-p3">{CONSULT.days}</p>
-            {CONSULT.time.split(', ').map((t) => <p key={t} className="text-[15px] leading-[1.7] text-p3">{t}</p>)}
+        {HOURS.length > 0 && (
+          <div className="rounded-[20px] border border-white/[.12] bg-white/[.06] p-4 max-[900px]:col-span-full">
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-[.14em] text-mint">
+              Opening hours{SAME_DAYS && <span className="ml-2 font-medium normal-case tracking-normal text-p3">· {HOURS[0].days}</span>}
+            </h3>
+            <div className="grid gap-x-6 gap-y-2.5 max-[900px]:grid-cols-2 max-[560px]:grid-cols-1">
+              {HOURS.map((h) => (
+                <div key={h.key || h.label}>
+                  <p className="text-[14.5px] font-bold uppercase tracking-[.08em] text-accent-light">{h.label}{!SAME_DAYS && <span className="ml-2 font-medium normal-case tracking-normal text-p3">· {h.days}</span>}</p>
+                  {h.time.split(', ').map((t) => <p key={t} className="text-[14px] leading-[1.55] text-p3">{t}</p>)}
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

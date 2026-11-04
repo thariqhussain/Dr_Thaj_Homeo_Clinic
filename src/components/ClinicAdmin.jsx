@@ -24,7 +24,7 @@ import { isLowPower, prefersReducedMotion } from '../lib/utils';
    (the photo is simply there) and keep the lighter card sequence. */
 
 const SCROLL_LENGTH = '220svh';        // total section height. Smaller = faster card sequence (extra scroll = this minus 100svh)
-/* the photo's focus point is set on the <img> (object-position): 30% on desktop, 70% on tablets / phones, where the doctor would otherwise be cropped at the right edge */
+/* the photo's focus point is set on the <img> (object-position): 30% on desktop, centred on tablets / phones */
 const TITLE = ['Our', 'Clinic', 'Admin'];
 
 /* the doctor's text. **double stars** = bold. PREVIEW_SHARE = how much of the text shows before "Show more". */
@@ -149,7 +149,7 @@ export default function ClinicAdmin() {
             <img
               src="/assets/doctors/clinicAdmin.webp" alt="Dr. Aneesha Parveen, clinic admin"
               width="1920" height="1080" decoding="async" draggable="false"
-              className="ca-img absolute inset-0 h-full w-full select-none object-cover [object-position:30%_center] max-lg:[object-position:70%_center]"
+              className="ca-img absolute inset-0 h-full w-full select-none object-cover [object-position:30%_center] max-lg:[object-position:center]"
             />
             {/* legibility scrims: left/top for the heading, right for the cards */}
             <span aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(20,21,23,.55)_0%,rgba(20,21,23,0)_33%),linear-gradient(90deg,rgba(20,21,23,.5)_0%,rgba(20,21,23,0)_45%,rgba(20,21,23,.35)_100%)]" />
@@ -191,8 +191,8 @@ export default function ClinicAdmin() {
           </header>
 
           {/* bento cards — right side (bottom of the photo on phones) */}
-          <div className="absolute inset-y-0 right-12 z-[3] flex w-[min(460px,40%)] items-center max-lg:inset-x-6 max-lg:w-auto max-lg:items-end max-lg:pb-6 max-sm:inset-x-3 max-sm:pb-4">
-            <ul className="ca-grid grid w-full grid-cols-2 gap-3 lg:gap-4">
+          <div className="absolute inset-y-0 right-12 z-[3] flex w-[min(460px,40%)] pointer-events-none items-center max-lg:inset-x-6 max-lg:w-auto max-lg:items-end max-lg:pb-6 max-sm:inset-x-3 max-sm:pb-4">
+            <ul className="ca-grid pointer-events-auto grid w-full grid-cols-2 gap-3 lg:gap-4">
               {CARDS.map((c) => (
                 <li
                   key={c.value}

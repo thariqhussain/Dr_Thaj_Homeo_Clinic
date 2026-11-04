@@ -294,6 +294,8 @@ const FlexCarousel = ({
   index,
   controlRef,
   interactive = true,
+  lens = true,        // false: draw the photos straight to the screen (no bending / colour-split lens pass, so no soft edges)
+  parallax = true,    // false: each photo stays still inside its frame while the row moves
   className = '',
   style
 }) => {
@@ -335,7 +337,9 @@ const FlexCarousel = ({
       focusOnClick,
       autoplay,
       interval,
-      captureWheel
+      captureWheel,
+      lens,
+      parallax
     };
     engineRef.current?.wake();
   });
@@ -917,6 +921,7 @@ const FlexCarousel = ({
         cardProgram.uniforms.uDpr.value = dpr;
         cardProgram.uniforms.uRadius.value = s.radius;
         const shrink = 1 - clamp01(s.squeeze) * energy;
+        const useLens = s.lens !== false;
         const draws = [];
         for (let i = 0; i < n; i++) {
           const w = m.widths[i];
@@ -927,7 +932,7 @@ const FlexCarousel = ({
             const fx = effects.card ? effects.card(rel) : null;
             let x = homeX + rel + (fx ? fx.x : 0);
             let scale = shrink * (fx ? fx.scale : 1);
-            let alpha = fx ? fx.alpha : 1;
+            let alpha = (fx ? fx.alpha : 1) * (s.lens === false ? effects.sceneAlpha : 1);
             if (focusAmount > 0) {
               if (i === focus.index && Math.abs(rel) < w) {
                 scale *= 1 + (focusScale - 1) * focusEase;
@@ -953,9 +958,9 @@ const FlexCarousel = ({
           cardProgram.uniforms.uImage.value = slot.image;
           cardProgram.uniforms.uAlpha.value = draw.alpha;
           cardProgram.uniforms.uReady.value = slot.ready;
-          cardProgram.uniforms.uShift.value = reducedMotion ? 0 : Math.max(-1, Math.min(1, draw.rel / (width * 0.75)));
+          cardProgram.uniforms.uShift.value = reducedMotion || s.parallax === false ? 0 : Math.max(-1, Math.min(1, draw.rel / (width * 0.75)));
           cardProgram.uniforms.uPlaceholder.value = slot.color;
-          renderer.render({ scene: cardMesh, target, clear: first });
+          renderer.render({ scene: cardMesh, target: useLens ? target : undefined, clear: first });
           first = false;
           instances.push({
             index: draw.i,
@@ -965,6 +970,14 @@ const FlexCarousel = ({
             y1: draw.y + draw.ch / 2
           });
         }
+        if (!useLens) {
+          /* no lens: the photos were drawn straight to the screen above; only an empty frame needs clearing */
+          if (first) {
+            renderer.bindFramebuffer();
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+          }
+        } else {
         if (first) {
           renderer.bindFramebuffer(target);
           gl.viewport(0, 0, target.width, target.height);
@@ -991,6 +1004,7 @@ const FlexCarousel = ({
         lensUniforms.uStrength.value = effects.strength * (1 - focusEase);
         lensUniforms.uSceneAlpha.value = effects.sceneAlpha;
         renderer.render({ scene: lensMesh });
+        }
       }
 
       let nextHover = '';

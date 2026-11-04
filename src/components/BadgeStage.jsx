@@ -1,23 +1,32 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { CLINIC_PHONE, DOCTOR_CARD, MAPS_URL, SOCIALS } from '../data/content';
-import { isLowPower, prefersReducedMotion } from '../lib/utils';
+import { prefersReducedMotion } from '../lib/utils';
 
 /* The swinging clinic badge (React Bits Lanyard), used by DoctorProfile. Its two faces are painted at runtime: the FRONT carries
-   the doctor's picture and details, the BACK carries four logo tiles (Instagram, Facebook, WhatsApp, Google Maps; links come from
+   the doctor's picture, name and role, the BACK carries the details and four logo tiles (Instagram, Facebook, WhatsApp, Google Maps; links come from
    SOCIALS and MAPS_URL). Tap or click a logo to open its page; tap anywhere else on the card to flip it.
 
    OVERLAY (desktop, mouse, WebGL): the 3D canvas covers the whole section it lives in (a viewport-tall panel at its top), sits above the content, and ignores the mouse except while the pointer is over the card, so links and
    text under it stay clickable and the card can be dragged over any of them. The strap hangs from the stage column's centre.
    Touch screens and narrow windows keep the card boxed in its column. Built only when needed (md+, WebGL, stage near the
-   viewport), so three.js stays out of the first load. Without WebGL it becomes a flat green tile with the same QR codes.
+   viewport), so three.js stays out of the first load. Without WebGL it becomes a flat lime tile with the same QR codes.
    Data-saver and low-memory devices skip the 3D badge. Needs `three`. */
 
 const Lanyard = lazy(() => import('./Lanyard'));
 
-const DEEP = '#2f5a3f';   // the deep green: the accent on the badge text
-const PAPER = '#fbfcfa';  // the badge's card colour (white, with the coloured shapes below on top)
-const INK = '#1f2a44';    // the badge's text
+/* the badge follows the client's reference card: pure black body with a light-lime border (#c5e29f, sampled from the reference ID card).
+   Constant names are kept from the old blue design so the rest of the file needs no changes. */
+const LIME = '#c5e29f';     // the border colour from the reference image
+const BLUE = '#000000';     // card body: pure black
+const BLUE_DEEP = '#000000';
+const PEACH = '#9ad06b';    // accent (role text start, ticks, heading): leaf green from the reference logo
+const YELLOW = LIME;        // accent (role text end, outline, role line): the lime of the border
+const INK = '#1c2233';      // dark text on the white logo tiles
+const CARD_MID = LIME;      // edge colour of the 3D card (the rim matches the border)
+const STRAP = '#000000';    // lanyard strap: black, like the reference
 /* the doctor's picture goes on the FRONT face of the badge. File lives in public/assets/doctors/ (BASE_URL keeps it working under a sub-path deploy) */
+export const CLINIC_LOGO = `${import.meta.env.BASE_URL}assets/doctors/clinic_logo.webp`;   // the clinic logo, shown on both faces
+export const CLINIC_LOGO_BACK = CLINIC_LOGO;   // same logo on the back face
 export const DOCTOR_IMG = `${import.meta.env.BASE_URL}assets/doctors/drThaj.webp`;   // same cut-out as the hero card, so the scroll sequence can land it on the badge
 
 const BADGES = [
@@ -71,8 +80,9 @@ const hasWebGL = () => {
   }
 };
 
-/* low-power devices skip the 3D badge and the pinned scroll sequence that goes with it (they get the plain static profile) */
-const lowPower = isLowPower;
+/* the 3D badge is skipped only for data-saver or a device that reports 2 GB of memory or less
+   (the site-wide isLowPower() also rules out most phones and tablets, which then got no badge at all) */
+const lowPower = () => !!navigator.connection?.saveData || (typeof navigator.deviceMemory === 'number' && navigator.deviceMemory <= 2);
 
 /* ── badge faces: one 1024×1440 picture per face (the top ~14% stays clear for the strap clip) ── */
 function roundedRect(ctx, x, y, w, h, r) {
@@ -85,145 +95,273 @@ function roundedRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-/* the badge's decoration: overlapping translucent triangles in the corners (multiply, so where two cross the colours mix).
-   Painted once into the face picture, so they cost nothing while the badge swings. [points, colour, opacity] in picture pixels. */
-const SHAPE_TOP = [
-  [[[0, 0], [520, 0], [0, 300]], '#f6c945', 0.95],
-  [[[130, 0], [700, 0], [340, 250]], '#ee5b7e', 0.8],
-  [[[0, 120], [260, 40], [120, 230]], '#8a6fd1', 0.55],
-  [[[1024, 0], [1024, 360], [760, 120]], '#8dbb3c', 0.8],
-  [[[1024, 160], [1024, 360], [900, 250]], '#f58a2e', 0.85],
-  [[[560, 0], [1024, 0], [1024, 140]], '#b24aa2', 0.6],
-];
-const SHAPE_BOTTOM = [
-  [[[0, 1440], [0, 1220], [250, 1440]], '#b24aa2', 0.75],
-  [[[0, 1440], [0, 1330], [150, 1440]], '#f58a2e', 0.9],
-  [[[0, 1300], [110, 1440], [150, 1330]], '#f6c945', 0.8],
-  [[[1024, 1440], [1024, 1250], [820, 1440]], '#ee5b7e', 0.75],
-  [[[1024, 1440], [1024, 1340], [900, 1440]], '#8dbb3c', 0.85],
-  [[[1024, 1330], [930, 1440], [900, 1360]], '#f6c945', 0.8],
-];
-function paintShapes(ctx, shapes) {
+function newFace(color) {
+  const c = document.createElement('canvas');
+  c.width = 1024; c.height = 1440;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, 1024, 1440);
+  ctx.textAlign = 'left';
+  /* the lime border running round the whole face, inset a little from the edge */
   ctx.save();
-  ctx.globalCompositeOperation = 'multiply';
-  shapes.forEach(([pts, color, alpha]) => {
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
-    ctx.closePath();
-    ctx.fill();
+  ctx.strokeStyle = LIME; ctx.lineWidth = 12;
+  roundedRect(ctx, 22, 22, 1024 - 44, 1440 - 44, 70);
+  ctx.stroke();
+  ctx.restore();
+  return { c, ctx };
+}
+
+const checkMark = (ctx, x, y, color, size = 1) => {
+  ctx.save();
+  ctx.strokeStyle = color; ctx.lineWidth = 6 * size; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 11 * size, y + 12 * size); ctx.lineTo(x + 30 * size, y - 12 * size); ctx.stroke();
+  ctx.restore();
+};
+
+/* the clinic logo as it is (transparent, no plate behind it); returns its width */
+function platedLogo(ctx, logo, x, y, h) {
+  let lh = h;
+  let lw = logo ? (logo.naturalWidth / logo.naturalHeight) * lh : lh;
+  if (lw > 420) { lw = 420; lh = logo ? lw / (logo.naturalWidth / logo.naturalHeight) : lw; }   // a very wide logo is scaled down
+  if (logo) ctx.drawImage(logo, x, y + (h - lh) / 2, lw, lh);
+  return lw;
+}
+
+/* break a line into lines no wider than maxW (at the spaces) */
+function wrapLines(ctx, text, maxW) {
+  const out = [];
+  let line = '';
+  text.split(' ').forEach((w) => {
+    const t = line ? `${line} ${w}` : w;
+    if (line && ctx.measureText(t).width > maxW) { out.push(line); line = w; } else line = t;
+  });
+  if (line) out.push(line);
+  return out;
+}
+
+/* shrink a line of text until it fits */
+function fitFont(ctx, text, weight, size, family, maxW) {
+  let px = size;
+  ctx.font = `${weight} ${px}px ${family}`;
+  while (ctx.measureText(text).width > maxW && px > 30) { px -= 2; ctx.font = `${weight} ${px}px ${family}`; }
+  return px;
+}
+
+const DOCTOR_FACE_H = 1200;   // the doctor's height on the front face (of 1440), centred. DoctorProfile's CARD_H / inlinePhoto follow it (1200/1060 of the old 1060).
+
+/* the doctor's name as two lines: everything but the last word, then the last word */
+/* the doctor's name as shown on the card: single-letter initials such as "S." are left out ("Dr. S. Mohammed Thajudeen" → "Dr. Mohammed Thajudeen") */
+const cardWords = () => DOCTOR_CARD.name.split(' ').filter((w) => w && !/^[A-Za-z]\.?$/.test(w));
+const nameLines = () => {
+  const words = cardWords();
+  return words.length > 1 ? [words.slice(0, -1).join(' '), words[words.length - 1]] : [words[0] || DOCTOR_CARD.name];
+};
+
+/* the name in up to three short lines, so it stays in the narrow column left of the centred doctor */
+const nameLines3 = () => {
+  const w = cardWords();
+  if (w.length < 3) return nameLines();
+  return [w.slice(0, w.length - 2).join(' '), w[w.length - 2], w[w.length - 1]];
+};
+
+/* a very light whitish-grey pattern printed INSIDE the card, behind everything else: THREE heartbeat (pulse) lines, level and evenly spaced
+   down the card, each peak sprouting a small leaf (half the size of the first design). Drawn on both faces. */
+const PULSE_ROW = new Path2D('M0 70H80l9-9 9 9h22l9 11 15-58 15 78 9-31h92l9-8 9 8H360');
+const PULSE_STEM = new Path2D('M154 22q3-8 9-11');
+const PULSE_LEAF = new Path2D('M163 11c6-6 14-6 18-3 0 8-6 13-18 3z');
+function pulsePattern(ctx) {
+  const K = 1.25;                                   // size of the pulse (one repeat is 360 × K px wide)
+  ctx.save();
+  ctx.strokeStyle = 'rgba(197,226,159,.16)'; ctx.fillStyle = 'rgba(197,226,159,.12)';   // faint lime on black
+  ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  [0.25, 0.5, 0.75].forEach((f) => {                // three lines, a quarter of the card's height apart
+    for (let x = 0; x < 1024; x += 360 * K) {
+      ctx.save();
+      ctx.translate(x, 1440 * f - 70 * K);
+      ctx.scale(K, K);
+      ctx.stroke(PULSE_ROW); ctx.stroke(PULSE_STEM); ctx.fill(PULSE_LEAF);
+      ctx.restore();
+    }
   });
   ctx.restore();
 }
 
-function newFace() {
-  const c = document.createElement('canvas');
-  c.width = 1024; c.height = 1440;
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = PAPER;
-  ctx.fillRect(0, 0, 1024, 1440);
-  ctx.fillStyle = INK;
-  ctx.textAlign = 'center';
-  return { c, ctx };
-}
+/* FRONT (black): clinic logo top right, the name top left (three short lines), the role set huge and vertical
+   (peach → yellow) down the left side in TWO layers with the doctor between them: the solid letters sit BEHIND the doctor, an
+   outline of the same letters in the same colours sits IN FRONT of him. The doctor is big and centred, standing at the bottom.
+   The top ~14% stays clear for the strap clip. */
+function drawFront(photo, clinicLogo, fonts) {
+  const { c, ctx } = newFace(BLUE);
+  pulsePattern(ctx);
+  const body = fonts.body;
+  const lw = platedLogo(ctx, clinicLogo, 0, -999, 190);   // measure only (drawn off the face), then place at the right edge
+  platedLogo(ctx, clinicLogo, 1024 - 56 - lw, 100, 190);
 
-/* FRONT: clinic name, a flip hint, the doctor's cut-out, and the doctor's details on a plate along the bottom edge */
-function drawFront(photo, fonts) {
-  const { c, ctx } = newFace();
-  paintShapes(ctx, SHAPE_TOP);
-  ctx.font = `72px ${fonts.display}`;
-  ctx.fillText('Dr. Thaj Homoeo Clinic', 512, 320);
-  ctx.font = `42px ${fonts.body}`;
-  ctx.fillStyle = 'rgba(31,42,68,.7)';
-  ctx.fillText(`${fonts.verb} the badge to flip`, 512, 380);
+  /* the vertical role: bottom → top, two lines side by side, a little in from the left edge and a little bigger */
+  const words = (DOCTOR_CARD.role || 'Homoeopathic Doctor').toUpperCase().split(/\s+/).filter(Boolean);
+  const cut = Math.ceil(words.length / 2);
+  const rl = words.length > 1 ? [words.slice(0, cut).join(' '), words.slice(cut).join(' ')] : [words[0]];
+  const START = 1436;
+  const LEN = START - 305;                         // runs up to just under the name
+  const X0 = 92;                                   // how far in from the left edge
+  if ('letterSpacing' in ctx) ctx.letterSpacing = '-6px';          // slightly tight letters, so the role can be set bigger
+  const vfs = Math.min(280, ...rl.map((t) => fitFont(ctx, t, 800, 280, body, LEN - 6)));   // -10: room for the extra-bold outline
+  const paintRole = (layer) => rl.forEach((t, i) => {
+    ctx.save();
+    ctx.translate(X0 + vfs * 0.74 + i * vfs * 1.0, START);
+    ctx.rotate(-Math.PI / 2);
+    const g = ctx.createLinearGradient(0, 0, LEN, 0);
+    g.addColorStop(0, PEACH); g.addColorStop(1, YELLOW);
+    ctx.strokeStyle = g; ctx.font = `800 ${vfs}px ${body}`; ctx.textAlign = 'left'; ctx.lineJoin = 'round';
+    if (layer === 'back') {
+      ctx.fillStyle = g; ctx.lineWidth = Math.max(4, vfs * 0.045);   // an outline in the same fill makes the letters heavier than the font's boldest weight
+      ctx.fillText(t, 7, 0); ctx.strokeText(t, 7, 0);
+    } else {
+      ctx.strokeStyle = YELLOW;                                      // the thin outline is plain yellow
+      ctx.lineWidth = Math.max(2.5, vfs * 0.022);                    // outline only (thin), drawn over the doctor
+      ctx.strokeText(t, 7, 0);
+    }
+    ctx.restore();
+  });
+
+  paintRole('back');                                // layer 1: the solid text, behind the doctor
+
+  /* layer 2: the doctor, big and centred, standing at the bottom */
   if (photo) {
-    const h = 1020;
+    const h = DOCTOR_FACE_H;
     const w = (photo.naturalWidth / photo.naturalHeight) * h;
-    ctx.drawImage(photo, (1024 - w) / 2, 1440 - h, w, h);
+    /* the doctor sits so that his left-most edge lands in the MIDDLE of the last role line (the one next to him, "PHYSICIAN"):
+       the doctor covers the right half of that word and the left half stays clear (50% revealed). The edge is measured from the
+       cut-out's own transparent margin, so it holds for any photo. */
+    const lastBase = X0 + vfs * 0.74 + (rl.length - 1) * vfs;   // baseline of the last role line
+    const targetX = lastBase - vfs * 0.36;                        // its middle (cap height is about 0.72 of the font size)
+    let x = (1024 - w) / 2;                                       // fallback: centred
+    try {
+      const sc = 0.25, cw = Math.max(1, Math.round(w * sc)), ch = Math.max(1, Math.round(h * sc));
+      const t = document.createElement('canvas'); t.width = cw; t.height = ch;
+      const tc = t.getContext('2d', { willReadFrequently: true });
+      tc.drawImage(photo, 0, 0, cw, ch);
+      const px = tc.getImageData(0, 0, cw, ch).data;
+      let left = -1;
+      for (let cx = 0; cx < cw && left < 0; cx += 1) {
+        for (let cy = 0; cy < ch; cy += 1) { if (px[(cy * cw + cx) * 4 + 3] > 40) { left = cx; break; } }
+      }
+      if (left >= 0) x = targetX - left / sc;
+    } catch { /* keep the centred position */ }
+    ctx.drawImage(photo, x, 1440 - h, w, h);
   }
-  /* details plate: the photo fades into the card colour, then name, degrees, registration and phone */
-  const fade = ctx.createLinearGradient(0, 1060, 0, 1440);
-  fade.addColorStop(0, 'rgba(251,252,250,0)');
-  fade.addColorStop(0.42, 'rgba(251,252,250,.94)');
-  fade.addColorStop(1, 'rgba(251,252,250,1)');
-  ctx.fillStyle = fade;
-  ctx.fillRect(0, 1060, 1024, 380);
-  paintShapes(ctx, SHAPE_BOTTOM);
-  const lines = [
-    { t: DOCTOR_CARD.name, font: `68px ${fonts.display}`, color: INK, big: true },
-    { t: DOCTOR_CARD.degrees, font: `600 40px ${fonts.body}`, color: DEEP },
-    { t: DOCTOR_CARD.role, font: `36px ${fonts.body}`, color: 'rgba(31,42,68,.8)' },
-    { t: DOCTOR_CARD.reg, font: `34px ${fonts.body}`, color: 'rgba(31,42,68,.8)' },
-    { t: CLINIC_PHONE?.display ? `Clinic: ${CLINIC_PHONE.display}` : '', font: `34px ${fonts.body}`, color: 'rgba(31,42,68,.8)' },
-  ].filter((l) => l.t);
-  /* stack the filled lines upwards from the bottom margin, so a missing field never leaves a gap */
-  let y = 1402;
-  for (let i = lines.length - 1; i >= 0; i -= 1) {
-    ctx.font = lines[i].font;
-    ctx.fillStyle = lines[i].color;
-    ctx.fillText(lines[i].t, 512, y);
-    y -= lines[i - 1]?.big ? 70 : 50;
-  }
+
+  /* (the thin outline of the role text that used to be drawn over the doctor has been removed) */
+  if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+
+  /* the name (over everything, in the column left of the doctor's head) */
+  ctx.fillStyle = '#ffffff';
+  const nl = nameLines3();
+  const npx = Math.min(...nl.map((t) => fitFont(ctx, t, 800, 92, body, 320)));
+  ctx.font = `800 ${npx}px ${body}`;
+  nl.forEach((t, i) => ctx.fillText(t, 64, 100 + npx * 0.98 + i * npx * 1.02));
+
   return c.toDataURL('image/png');
 }
 
-/* BACK: four logo tiles in a 2 × 2 grid on a decorated card. Returns the picture and where each tile is (in picture pixels),
-   so a tap on a tile can open its link (see the onFaceClick handler below). */
-function drawBack(items, logos, fonts) {
-  const { c, ctx } = newFace();
-  paintShapes(ctx, SHAPE_TOP);
-  paintShapes(ctx, SHAPE_BOTTOM);
+/* BACK (black, like the front): the name big and white, the role, the details with ticks, "Tap a logo to connect !" over the four logo tiles,
+   the clinic at the bottom. Returns the picture and where each tile is (in picture pixels), so a tap on a tile opens its link. */
+function drawBack(items, logos, clinicLogo, fonts) {
+  const { c, ctx } = newFace(BLUE);
+  pulsePattern(ctx);
+  const body = fonts.body;
+  const nl = nameLines();
+  const npx = Math.min(...nl.map((t) => fitFont(ctx, t, 800, 104, body, 900)));
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `800 ${npx}px ${body}`;
+  let y = 232 + npx * 0.9;
+  nl.forEach((t) => { ctx.fillText(t, 64, y); y += npx * 1.02; });
+  ctx.fillStyle = YELLOW;
+  ctx.font = `700 40px ${body}`;
+  y += 10;
+  if (DOCTOR_CARD.role) { ctx.fillText(DOCTOR_CARD.role, 64, y); y += 30; }
 
-  ctx.fillStyle = INK;
+  /* details with a tick */
+  y += 44;
+  const detail = (text, weight, size, color) => {
+    ctx.font = `${weight} ${size}px ${body}`;
+    ctx.fillStyle = color;
+    wrapLines(ctx, text, 800).forEach((t, i) => { ctx.fillText(t, 118, y); y += size * 1.4; if (i === 0) checkMark(ctx, 64, y - size * 1.4 - 8, PEACH, 0.9); });
+    y += 10;
+  };
+  if (DOCTOR_CARD.degrees) detail(DOCTOR_CARD.degrees, 700, 30, '#ffffff');
+  if (DOCTOR_CARD.reg) detail(DOCTOR_CARD.reg, 500, 28, 'rgba(255,255,255,.82)');
+  if (CLINIC_PHONE?.display) detail(`Clinic: ${CLINIC_PHONE.display}`, 600, 30, '#ffffff');
+
+  /* heading + the four logo tiles */
+  const headY = Math.max(y + 70, 800);
+  ctx.fillStyle = PEACH;
+  ctx.font = `800 40px ${body}`;
   ctx.textAlign = 'center';
-  ctx.font = `66px ${fonts.display}`;
-  ctx.fillText('Dr. Thaj Homoeo Clinic', 512, 318);
-  ctx.fillStyle = DEEP;
-  ctx.font = `600 34px ${fonts.body}`;
-  ctx.fillText('F I N D   U S   O N L I N E', 512, 378);
-  /* divider with a star */
-  ctx.fillStyle = 'rgba(31,42,68,.25)';
-  ctx.fillRect(250, 424, 210, 3);
-  ctx.fillRect(564, 424, 210, 3);
-  ctx.fillStyle = '#f2c14e';
-  ctx.font = `40px ${fonts.body}`;
-  ctx.fillText('✦', 512, 438);
+  ctx.fillText(`${fonts.verb} a logo to connect !`, 512, headY);
+  ctx.textAlign = 'left';
 
-  const tile = 360, gap = 40;
-  const x0 = (1024 - (2 * tile + gap)) / 2;
-  const y0 = 500;
+  const tile = 204, gap = 26;
+  const x0 = (1024 - (4 * tile + 3 * gap)) / 2;
+  const y0 = headY + 40;
   const hits = [];
   items.slice(0, 4).forEach((it, i) => {
-    const x = x0 + (i % 2) * (tile + gap);
-    const y = y0 + Math.floor(i / 2) * (tile + gap);
-    /* card: soft shadow, white tile, the logo, the name */
+    const x = x0 + i * (tile + gap);
     ctx.save();
-    ctx.shadowColor = 'rgba(31,42,68,.22)';
-    ctx.shadowBlur = 36;
-    ctx.shadowOffsetY = 14;
-    ctx.fillStyle = '#fff';
-    roundedRect(ctx, x, y, tile, tile, 56);
+    ctx.shadowColor = 'rgba(197,226,159,.25)';
+    ctx.shadowBlur = 24;
+    ctx.shadowOffsetY = 8;
+    ctx.fillStyle = '#ffffff';
+    roundedRect(ctx, x, y0, tile, tile, 40);
     ctx.fill();
     ctx.restore();
-    ctx.strokeStyle = 'rgba(31,42,68,.1)';
-    ctx.lineWidth = 2;
-    roundedRect(ctx, x, y, tile, tile, 56);
-    ctx.stroke();
     const logo = logos[i];
-    if (logo) ctx.drawImage(logo, x + (tile - 188) / 2, y + 52, 188, 188);
-    ctx.fillStyle = '#212529';
-    ctx.font = `600 44px ${fonts.body}`;
-    ctx.fillText(it.label, x + tile / 2, y + tile - 52);
-    hits.push({ x, y, w: tile, h: tile, url: it.url, label: it.label });
+    if (logo) ctx.drawImage(logo, x + (tile - 112) / 2, y0 + 28, 112, 112);
+    ctx.fillStyle = INK;
+    ctx.textAlign = 'center';
+    ctx.font = `600 28px ${body}`;
+    ctx.fillText(it.label, x + tile / 2, y0 + tile - 28);
+    ctx.textAlign = 'left';
+    hits.push({ x, y: y0, w: tile, h: tile, url: it.url, label: it.label });
   });
-  ctx.fillStyle = 'rgba(31,42,68,.85)';
-  ctx.font = `38px ${fonts.body}`;
-  ctx.fillText(`${fonts.verb} a logo to open it`, 512, 1326);
-  ctx.fillStyle = 'rgba(31,42,68,.6)';
-  ctx.font = `34px ${fonts.body}`;
-  ctx.fillText(`${fonts.verb} the card elsewhere to flip it`, 512, 1380);
+  ctx.fillStyle = 'rgba(255,255,255,.62)';
+  ctx.font = `500 26px ${body}`;
+  ctx.textAlign = 'center';
+  ctx.fillText(`${fonts.verb} the card elsewhere to flip it`, 512, y0 + tile + 62);
+  ctx.textAlign = 'left';
+
+  /* footer: the clinic logo, big and centred (no text) */
+  ctx.fillStyle = 'rgba(255,255,255,.22)'; ctx.fillRect(64, 1212, 896, 3);
+  const flw = platedLogo(ctx, clinicLogo, 0, -999, 180);   // measure only
+  platedLogo(ctx, clinicLogo, (1024 - flw) / 2, 1236, 180);
   return { url: c.toDataURL('image/png'), hits };
+}
+
+/* The lanyard ribbon: one repeating tile, painted like the faces. The strap turns the picture a quarter turn, so the tile's left→right
+   runs DOWN the ribbon. The tile is kept short (about 3.7× as long as the ribbon is wide, name on two lines) so that one whole
+   "logo + Dr. Thaj Homoeo Clinic" fits in the visible length of the ribbon on a phone, a tablet and the big desktop badge. */
+/* The lanyard ribbon: ONE picture that is much longer than the ribbon, with the clinic logo once, upright, a little above the card.
+   The strap turns its picture a quarter turn (the picture's left→right runs DOWN the ribbon), so the logo is drawn turned the other
+   way here and comes out straight. The tile is so long (STRAP_TILE × the ribbon's width) that it never repeats along the ribbon.
+   If the logo ever shows upside down, or at the wrong end, set STRAP_FLIP to true. */
+const STRAP_TILE = 16;
+const STRAP_FLIP = false;
+function drawStrap(clinicLogo) {
+  const A = 256;                                   // across the ribbon
+  const L = A * STRAP_TILE;                        // along the ribbon
+  const c = document.createElement('canvas');
+  c.width = L; c.height = A;                       // (transparent: the ribbon's own colour shows through)
+  const ctx = c.getContext('2d');
+  if (clinicLogo) {
+    const lw = A - 14;                             // the logo's width across the ribbon (the ribbon's own width is the limit)
+    const lh = lw / (clinicLogo.naturalWidth / clinicLogo.naturalHeight);
+    const cy = STRAP_FLIP ? A * 1.7 : L - A * 1.7;  // where along the ribbon the logo's centre sits (just above the card)
+    ctx.translate(0, A);
+    ctx.rotate(-Math.PI / 2);                      // now (x, y) = (across, along) of the upright ribbon
+    if (STRAP_FLIP) { ctx.translate(A / 2, cy); ctx.rotate(Math.PI); ctx.translate(-A / 2, -cy); }
+    ctx.drawImage(clinicLogo, (A - lw) / 2, cy - lh / 2, lw, lh);
+  }
+  return c.toDataURL('image/png');
 }
 
 const loadPhoto = (src) => new Promise((resolve) => {
@@ -239,6 +377,7 @@ function QrBadge({ items, overlay = false, anchor = 0.5, phone = false, photoOn 
   const bodyRef = useRef(null);
   const hitsRef = useRef([]);                       // where each logo tile is on the back face (picture pixels)
   const [faces, setFaces] = useState(null);
+  const [strap, setStrap] = useState(null);             // the ribbon picture (clinic logo + name)
   const key = items.map((i) => i.url).join('|');
 
   useEffect(() => {
@@ -252,15 +391,16 @@ function QrBadge({ items, overlay = false, anchor = 0.5, phone = false, photoOn 
         verb: touch ? 'Tap' : 'Click',
       };
       try {
-        await Promise.all([document.fonts.load(`72px ${fonts.display}`), document.fonts.load(`600 88px ${fonts.body}`)]);
+        await Promise.all([document.fonts.load(`72px ${fonts.display}`), document.fonts.load(`600 88px ${fonts.body}`), document.fonts.load(`800 60px ${fonts.body}`), document.fonts.load(`700 30px ${fonts.body}`)]);
       } catch { /* paint with whatever is available */ }
       if (off) return;
-      const [photo, ...logos] = await Promise.all([loadPhoto(DOCTOR_IMG), ...items.slice(0, 4).map((it) => loadPhoto(logoSrc(it.icon)))]);
+      const [photo, clinicLogo, backLogo, ...logos] = await Promise.all([loadPhoto(DOCTOR_IMG), loadPhoto(CLINIC_LOGO), loadPhoto(CLINIC_LOGO_BACK), ...items.slice(0, 4).map((it) => loadPhoto(logoSrc(it.icon)))]);
       if (off) return;
-      const back = drawBack(items, logos, fonts);
+      const back = drawBack(items, logos, backLogo || clinicLogo, fonts);
       hitsRef.current = back.hits;
+      setStrap(drawStrap(clinicLogo || backLogo, fonts));
       /* [front with the doctor, front without, back]: the scroll sequence shows the empty front until the doctor lands on it */
-      setFaces([photo ? drawFront(photo, fonts) : back.url, photo ? drawFront(null, fonts) : back.url, back.url]);
+      setFaces([photo ? drawFront(photo, clinicLogo, fonts) : back.url, photo ? drawFront(null, clinicLogo, fonts) : back.url, back.url]);
     })();
     return () => { off = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -285,8 +425,8 @@ function QrBadge({ items, overlay = false, anchor = 0.5, phone = false, photoOn 
         <Suspense fallback={null}>
           <Lanyard
             frontImage={photoOn ? faces[0] : faces[1]} backImage={faces[2]} imageFit="cover" onFaceClick={onFaceClick}
-            cardColor={PAPER} finish="matte" strapColor="#14211a"
-            size={overlay ? 0.48 : phone ? 0.66 : 0.6} strapLength={overlay ? 0.6 : 0.5} anchor={overlay ? anchor : 'center'}
+            cardColor={CARD_MID} finish="matte" strapColor={STRAP} strapImage={strap || undefined} strapWidth={0.75}
+            size={overlay ? 0.48 : phone ? 0.66 : 0.6} strapLength={overlay ? 0.6 : 0.5} touchScroll={!overlay} anchor={overlay ? anchor : 'center'}
             passThrough={overlay} maxDpr={overlay || phone ? 1.5 : 2}
             className="absolute inset-0"
           />
@@ -299,13 +439,13 @@ function QrBadge({ items, overlay = false, anchor = 0.5, phone = false, photoOn 
 /* no-WebGL fallback: the same four logos as plain links on a flat tile */
 function QrTile({ items }) {
   return (
-    <div className="rounded-[18px] p-7" style={{ color: INK, backgroundColor: PAPER, backgroundImage: 'linear-gradient(135deg,#f6c945 0 9%,transparent 9%),linear-gradient(315deg,#ee5b7e 0 9%,transparent 9%)', boxShadow: 'inset 0 0 0 1px rgba(31,42,68,.1)' }}>
+    <div className="rounded-[18px] p-7" style={{ color: '#ffffff', backgroundColor: BLUE, border: `3px solid ${LIME}` }}>
       <ul className="m-0 grid list-none grid-cols-2 gap-4 p-0">
         {items.map((it) => (
           <li key={it.icon}>
             <a
               href={it.url} target="_blank" rel="noopener" aria-label={`Open our ${it.label} page`}
-              className="flex flex-col items-center gap-3 rounded-2xl bg-paper p-4 text-[15px] font-semibold text-p9 no-underline shadow-[0_6px_18px_-8px_rgba(31,42,68,.3)] transition-transform duration-300 hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a3f]"
+              className="flex flex-col items-center gap-3 rounded-2xl bg-paper p-4 text-[15px] font-semibold text-p9 no-underline shadow-[0_6px_18px_-8px_rgba(34,34,34,.3)] transition-transform duration-300 hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a3f]"
             >
               <img src={logoSrc(it.icon)} alt="" width="64" height="64" className="block h-16 w-16" />
               {it.label}
@@ -313,7 +453,7 @@ function QrTile({ items }) {
           </li>
         ))}
       </ul>
-      <p className="mb-0 mt-5 text-[16px] leading-[1.5]" style={{ color: 'rgba(31,42,68,.8)' }}>Tap a logo to open it.</p>
+      <p className="mb-0 mt-5 text-[16px] leading-[1.5]" style={{ color: 'rgba(255,255,255,.85)' }}>Tap a logo to open it.</p>
     </div>
   );
 }
@@ -327,8 +467,9 @@ export default function useLanyardBadge({ heroFits = true } = {}) {
   const [canGL] = useState(() => hasWebGL() && !lowPower());   // 3D badge allowed on this device
   const fine = useMedia('(min-width: 1024px) and (hover: hover) and (pointer: fine)');
   const overlayOn = fine && canGL;                 // the section-wide canvas
-  /* the scroll sequence (doctor flies from the hero and lands on the badge) runs whenever the 3D badge can, motion is allowed and the hero fits the screen */
-  const sequence = canGL && !prefersReducedMotion() && heroFits;
+  /* the scroll sequence (doctor flies from the hero and lands on the badge, card spiral) is desktop-with-a-mouse only.
+     Phones and tablets get just the badge, hanging in the doctor profile section. */
+  const sequence = overlayOn && !prefersReducedMotion() && heroFits;
   /* whether the badge's front shows the doctor. The sequence starts without her and switches her on as she lands. */
   const [photoOn, setPhotoOn] = useState(() => !sequence);
   useEffect(() => { setPhotoOn(!sequence); }, [sequence]);
@@ -356,7 +497,7 @@ export default function useLanyardBadge({ heroFits = true } = {}) {
 
   /* Phones/tablets: the box sits in normal flow. lg+: sticky in its column. Without the 3D badge a flat QR tile
      is shown, but only from 768px up (a phone can't scan its own screen). */
-  const showStage = items.length > 0 && (canGL || wide);
+  const showStage = items.length > 0;   // phones get the flat tile too when 3D is not possible
   const stage = showStage && (
     <div
       ref={setStageNode} aria-hidden={overlayOn || undefined}
