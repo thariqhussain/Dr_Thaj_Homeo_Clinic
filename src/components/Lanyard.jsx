@@ -424,6 +424,8 @@ const drawFitted = (ctx, image, width, height, fit) => {
 const paintFace = (canvas, image, color, fit) => {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   ctx.fillStyle = toCss(color);
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   if (image) drawFitted(ctx, image, canvas.width, canvas.height, fit);
@@ -787,7 +789,7 @@ const Lanyard = ({
     canvas.setAttribute('aria-hidden', 'true');
     container.appendChild(canvas);
 
-    const anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+    const anisotropy = Math.min(16, renderer.capabilities.getMaxAnisotropy());
     const scene = new THREE.Scene();
     const environment = buildEnvironment(renderer);
     scene.environment = environment.texture;
@@ -912,8 +914,9 @@ const Lanyard = ({
     const paintFaces = () => {
       const s = settingsRef.current;
       const color = parseColor(s.cardColor, [1, 1, 1]);
-      const width = FACE_WIDTH;
-      const height = Math.round((FACE_WIDTH * layout.height) / layout.width);
+      /* match the painted face picture (up to 2048 wide) so it is copied 1:1 instead of being shrunk to FACE_WIDTH */
+      const width = clamp(Math.round(images.front?.width || FACE_WIDTH), FACE_WIDTH, 2048);
+      const height = Math.round((width * layout.height) / layout.width);   // same card ratio at any width
       if (frontCanvas.width !== width || frontCanvas.height !== height) {
         frontCanvas.width = width;
         frontCanvas.height = height;

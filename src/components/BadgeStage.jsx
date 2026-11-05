@@ -95,10 +95,18 @@ function roundedRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+/* Face sharpness: the faces are still DESIGNED on a 1024×1440 grid (every coordinate below is unchanged), but the canvas is
+   FACE_SCALE times bigger and the context is scaled to match, so text, logo and photo are rasterised at full detail.
+   2 = 2048×2880 (desktop), 1.5 on phones to save GPU memory. Lower it if scrolling ever gets heavy. */
+const FACE_SCALE = (typeof window !== 'undefined' && window.matchMedia?.('(max-width: 767px)').matches) ? 1.5 : 2;
+
 function newFace(color) {
   const c = document.createElement('canvas');
-  c.width = 1024; c.height = 1440;
+  c.width = Math.round(1024 * FACE_SCALE); c.height = Math.round(1440 * FACE_SCALE);
   const ctx = c.getContext('2d');
+  ctx.scale(FACE_SCALE, FACE_SCALE);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   ctx.fillStyle = color;
   ctx.fillRect(0, 0, 1024, 1440);
   ctx.textAlign = 'left';
@@ -418,7 +426,8 @@ function QrBadge({ items, overlay = false, anchor = 0.5, phone = false, ctl }) {
   }, [key]);
 
   /* a tap on a logo tile opens its page; anything else on the card flips it (the badge asks with probe = true while hovering, to show a pointer) */
-  const onFaceClick = (face, x, y, probe) => {
+  const onFaceClick = (face, px, py, probe) => {
+    const x = px / FACE_SCALE, y = py / FACE_SCALE;   // picture pixels → the 1024×1440 design grid the hit boxes use
     if (face !== 'back') return false;
     const t = hitsRef.current.find((h) => x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h);
     if (!t) return false;
@@ -438,7 +447,7 @@ function QrBadge({ items, overlay = false, anchor = 0.5, phone = false, ctl }) {
             frontImage={faces[1]} frontImageB={faces[0]} photoBox={photoBox} controlRef={ctl} backImage={faces[2]} imageFit="cover" onFaceClick={onFaceClick}
             cardColor={CARD_MID} finish="matte" strapColor={STRAP} strapImage={strap || undefined} strapWidth={0.75}
             size={overlay ? 0.48 : phone ? 0.66 : 0.6} strapLength={overlay ? 0.6 : 0.5} touchScroll={!overlay} anchor={overlay ? anchor : 'center'}
-            passThrough={overlay} maxDpr={overlay || phone ? 1.5 : 2}
+            passThrough={overlay} maxDpr={phone ? 1.5 : 2}
             className="absolute inset-0"
           />
         </Suspense>
