@@ -147,6 +147,10 @@ function fitFont(ctx, text, weight, size, family, maxW) {
   return px;
 }
 
+/* where drawFront() last put the doctor's picture on the face, as fractions of the face (left edge, right edge, top edge; the bottom is the card's bottom).
+   Lanyard uses it to find the doctor on the live, swinging card, so the flying copy can land exactly on her. */
+let PHOTO_BOX = null;
+
 const DOCTOR_FACE_H = 1200;   // the doctor's height on the front face (of 1440), centred. DoctorProfile's CARD_H / inlinePhoto follow it (1200/1060 of the old 1060).
 
 /* the doctor's name as two lines: everything but the last word, then the last word */
@@ -248,6 +252,7 @@ function drawFront(photo, clinicLogo, fonts) {
       }
       if (left >= 0) x = targetX - left / sc;
     } catch { /* keep the centred position */ }
+    PHOTO_BOX = { x0: x / 1024, x1: (x + w) / 1024, top: (1440 - h) / 1440 };
     ctx.drawImage(photo, x, 1440 - h, w, h);
   }
 
@@ -372,12 +377,13 @@ const loadPhoto = (src) => new Promise((resolve) => {
 });
 
 /* hidden QR canvases + font probes → painted faces → the 3D badge */
-function QrBadge({ items, overlay = false, anchor = 0.5, phone = false, photoOn = true }) {
+function QrBadge({ items, overlay = false, anchor = 0.5, phone = false, ctl }) {
   const dispRef = useRef(null);
   const bodyRef = useRef(null);
   const hitsRef = useRef([]);                       // where each logo tile is on the back face (picture pixels)
   const [faces, setFaces] = useState(null);
   const [strap, setStrap] = useState(null);             // the ribbon picture (clinic logo + name)
+  const [photoBox, setPhotoBox] = useState(null);       // where the doctor sits on the front face (see PHOTO_BOX)
   const key = items.map((i) => i.url).join('|');
 
   useEffect(() => {
@@ -399,8 +405,13 @@ function QrBadge({ items, overlay = false, anchor = 0.5, phone = false, photoOn 
       const back = drawBack(items, logos, backLogo || clinicLogo, fonts);
       hitsRef.current = back.hits;
       setStrap(drawStrap(clinicLogo || backLogo, fonts));
-      /* [front with the doctor, front without, back]: the scroll sequence shows the empty front until the doctor lands on it */
-      setFaces([photo ? drawFront(photo, clinicLogo, fonts) : back.url, photo ? drawFront(null, clinicLogo, fonts) : back.url, back.url]);
+      /* [front with the doctor, front without, back]. Both fronts go to the badge at once and are cross-faded on the GPU (ctl.current.setMix):
+         the scroll sequence shows the empty front until the doctor lands, then blends her in, with nothing left to decode at that moment. */
+      const withDoctor = photo ? drawFront(photo, clinicLogo, fonts) : back.url;
+      const box = photo ? PHOTO_BOX : null;
+      const without = photo ? drawFront(null, clinicLogo, fonts) : back.url;
+      setPhotoBox(box);
+      setFaces([withDoctor, without, back.url]);
     })();
     return () => { off = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -424,7 +435,7 @@ function QrBadge({ items, overlay = false, anchor = 0.5, phone = false, photoOn 
       {faces && (
         <Suspense fallback={null}>
           <Lanyard
-            frontImage={photoOn ? faces[0] : faces[1]} backImage={faces[2]} imageFit="cover" onFaceClick={onFaceClick}
+            frontImage={faces[1]} frontImageB={faces[0]} photoBox={photoBox} controlRef={ctl} backImage={faces[2]} imageFit="cover" onFaceClick={onFaceClick}
             cardColor={CARD_MID} finish="matte" strapColor={STRAP} strapImage={strap || undefined} strapWidth={0.75}
             size={overlay ? 0.48 : phone ? 0.66 : 0.6} strapLength={overlay ? 0.6 : 0.5} touchScroll={!overlay} anchor={overlay ? anchor : 'center'}
             passThrough={overlay} maxDpr={overlay || phone ? 1.5 : 2}
@@ -470,9 +481,13 @@ export default function useLanyardBadge({ heroFits = true } = {}) {
   /* the scroll sequence (doctor flies from the hero and lands on the badge, card spiral) is desktop-with-a-mouse only.
      Phones and tablets get just the badge, hanging in the doctor profile section. */
   const sequence = overlayOn && !prefersReducedMotion() && heroFits;
-  /* whether the badge's front shows the doctor. The sequence starts without her and switches her on as she lands. */
-  const [photoOn, setPhotoOn] = useState(() => !sequence);
-  useEffect(() => { setPhotoOn(!sequence); }, [sequence]);
+  /* how much of the doctor the badge's front shows (0 = empty front, 1 = with her). The sequence starts without her and blends her in as she lands;
+     DoctorProfile writes ctl.current.mix and calls ctl.current.setMix (filled in by Lanyard once it is running). Everywhere else she is simply there. */
+  const ctl = useRef({ mix: 1 });
+  useEffect(() => {
+    ctl.current.mix = sequence ? 0 : 1;
+    ctl.current.setMix?.(ctl.current.mix);
+  }, [sequence]);
   const overlayRef = useRef(null);
   const [anchor, setAnchor] = useState(0.76);    // where across the section the strap hangs (0…1): the column's centre
 
@@ -503,7 +518,7 @@ export default function useLanyardBadge({ heroFits = true } = {}) {
       ref={setStageNode} aria-hidden={overlayOn || undefined}
       className={`relative ${overlayOn ? 'min-h-[520px]' : sequence ? 'h-[clamp(380px,52svh,600px)] md:h-[clamp(460px,54svh,680px)] lg:h-[min(640px,calc(100svh-9rem))]' : canGL ? 'h-[min(480px,72svh)] md:h-[560px] lg:h-[min(720px,calc(100svh-7rem))] lg:min-h-[520px]' : ''} lg:self-start`}
     >
-      {!overlayOn && (canGL ? (near && <QrBadge items={items} phone={!wide} photoOn={photoOn} />) : <QrTile items={items} />)}
+      {!overlayOn && (canGL ? (near && <QrBadge items={items} phone={!wide} ctl={ctl} />) : <QrTile items={items} />)}
     </div>
   );
 
@@ -512,10 +527,10 @@ export default function useLanyardBadge({ heroFits = true } = {}) {
   const overlay = overlayOn && near && items.length > 0 && (
     <div className="pointer-events-none absolute inset-0 z-20">
       <div ref={overlayRef} className="absolute inset-x-0 top-0 h-[100svh] max-h-full">
-        <QrBadge items={items} overlay anchor={anchor} photoOn={photoOn} />
+        <QrBadge items={items} overlay anchor={anchor} ctl={ctl} />
       </div>
     </div>
   );
 
-  return { stage, overlay, overlayOn, setPhotoOn, sequence, canGL };
+  return { stage, overlay, overlayOn, ctl, sequence, canGL };
 }

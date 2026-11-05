@@ -701,6 +701,9 @@ const stepSimulation = (sim, dt, physics, time) => {
 
 const Lanyard = ({
   frontImage,
+  frontImageB,           // optional 2nd front picture (e.g. the face WITH the doctor). Both are preloaded; `controlRef.current.setMix(0…1)` cross-fades A → B on the GPU
+  photoBox,              // { x0, x1, top }: where the doctor's picture sits on the front face (0…1 of the face). Lets getPhotoRect() follow the live, swinging card
+  controlRef,            // ref object; Lanyard fills it with { setMix, getPhotoRect, nudge } (and reads controlRef.current.mix as the starting blend)
   backImage,
   imageFit = 'cover',
   cardColor = '#ffffff',
@@ -733,6 +736,9 @@ const Lanyard = ({
 
   settingsRef.current = {
     frontImage,
+    frontImageB,
+    photoBox,
+    controlRef,
     backImage,
     onFaceClick,
     imageFit: imageFit === 'contain' ? 'contain' : 'cover',
@@ -793,11 +799,13 @@ const Lanyard = ({
     scene.add(keyLight, fillLight);
 
     const imageCache = new Map();
-    const images = { front: null, back: null, strap: null };
+    const images = { front: null, frontB: null, back: null, strap: null };
     const frontCanvas = document.createElement('canvas');
     const backCanvas = document.createElement('canvas');
     const strapCanvas = document.createElement('canvas');
     const frontTexture = makeCanvasTexture(frontCanvas, anisotropy);
+    const frontCanvasB = document.createElement('canvas');
+    const frontTextureB = makeCanvasTexture(frontCanvasB, anisotropy);   // second front picture, blended over the first by blendUniforms.frontMix
     const backTexture = makeCanvasTexture(backCanvas, anisotropy);
     const strapTexture = makeCanvasTexture(strapCanvas, anisotropy);
     strapTexture.wrapS = THREE.ClampToEdgeWrapping;
@@ -821,6 +829,19 @@ const Lanyard = ({
         .replace('#include <opaque_fragment>', `${FOIL_FRAGMENT_BODY}\n#include <opaque_fragment>`);
     };
 
+    const blendUniforms = { frontB: { value: frontTextureB }, frontMix: { value: 0 } };
+    const injectBlend = shader => {
+      Object.assign(shader.uniforms, blendUniforms);
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform sampler2D frontB;\nuniform float frontMix;')
+        .replace('#include <map_fragment>', `#ifdef USE_MAP
+  vec4 sampledDiffuseColor = texture2D( map, vMapUv );
+  vec4 sampledDiffuseColorB = texture2D( frontB, vMapUv );
+  sampledDiffuseColor = mix( sampledDiffuseColor, sampledDiffuseColorB, frontMix );
+  diffuseColor *= sampledDiffuseColor;
+#endif`);
+    };
+
     const frontMaterial = new THREE.MeshPhysicalMaterial({
       map: frontTexture,
       normalMap: grain,
@@ -831,7 +852,7 @@ const Lanyard = ({
       normalMap: grain,
       normalScale: new THREE.Vector2(0.06, 0.06)
     });
-    frontMaterial.onBeforeCompile = injectFoil;
+    frontMaterial.onBeforeCompile = shader => { injectFoil(shader); injectBlend(shader); };
     backMaterial.onBeforeCompile = injectFoil;
     const edgeMaterial = new THREE.MeshPhysicalMaterial();
     const metalMaterial = new THREE.MeshStandardMaterial({ metalness: 1 });
@@ -898,10 +919,15 @@ const Lanyard = ({
         frontCanvas.height = height;
         backCanvas.width = width;
         backCanvas.height = height;
+        frontCanvasB.width = width;
+        frontCanvasB.height = height;
         frontTexture.dispose();
+        frontTextureB.dispose();
         backTexture.dispose();
       }
       paintFace(frontCanvas, images.front, color, s.imageFit);
+      paintFace(frontCanvasB, images.frontB || images.front, color, s.imageFit);
+      frontTextureB.needsUpdate = true;
       paintFace(backCanvas, images.back || images.front, color, s.imageFit);
       frontTexture.needsUpdate = true;
       backTexture.needsUpdate = true;
@@ -972,16 +998,18 @@ const Lanyard = ({
         }
       }
 
-      const imageKey = `${s.frontImage}|${s.backImage}|${s.strapImage}`;
+      const imageKey = `${s.frontImage}|${s.frontImageB}|${s.backImage}|${s.strapImage}`;
       if (imageKey !== applied.imageKey) {
         const token = ++imageToken;
         Promise.all([
           loadImage(imageCache, s.frontImage),
           loadImage(imageCache, s.backImage),
-          loadImage(imageCache, s.strapImage)
-        ]).then(([front, back, strap]) => {
+          loadImage(imageCache, s.strapImage),
+          loadImage(imageCache, s.frontImageB)
+        ]).then(([front, back, strap, frontB]) => {
           if (!alive || token !== imageToken) return;
           images.front = front;
+          images.frontB = frontB;
           images.back = back;
           images.strap = strap;
           paintFaces();
@@ -1307,12 +1335,55 @@ const Lanyard = ({
     document.addEventListener('visibilitychange', onVisibility);
 
     applyRef.current = apply;
+
+    /* control handle for the parent (no React re-render per scroll tick):
+       setMix(0…1)    cross-fade from frontImage to frontImageB (both are already decoded and on the GPU)
+       getPhotoRect() where the doctor's picture is on screen right now (viewport px: feet centre, width, height, tilt in degrees), or null
+       nudge(a)       a tiny sway, as if something had just settled onto the card */
+    const ctl = settingsRef.current.controlRef;
+    const spotV = new THREE.Vector3();
+    const toScreen = (fx, fy) => {
+      spotV.set((fx - 0.5) * layout.width, (0.5 - fy) * layout.height, frontMesh.position.z);
+      cardGroup.localToWorld(spotV);
+      spotV.project(camera);
+      return [(spotV.x * 0.5 + 0.5) * view.width, (0.5 - spotV.y * 0.5) * view.height];
+    };
+    const getPhotoRect = () => {
+      const box = settingsRef.current.photoBox;
+      if (!alive || !box || view.width < 2) return null;
+      cardGroup.position.copy(sim.body.position);
+      cardGroup.quaternion.copy(sim.body.quaternion);
+      cardGroup.updateMatrixWorld(true);
+      camera.updateMatrixWorld();
+      const cx = (box.x0 + box.x1) / 2;
+      const [bx, by] = toScreen(cx, 1);
+      const [tx, ty] = toScreen(cx, box.top);
+      const [lx, ly] = toScreen(box.x0, 1);
+      const [rx, ry] = toScreen(box.x1, 1);
+      const r = container.getBoundingClientRect();
+      return { x: r.left + bx, y: r.top + by, w: Math.hypot(rx - lx, ry - ly), h: Math.hypot(tx - bx, ty - by), rot: (Math.atan2(tx - bx, -(ty - by)) * 180) / Math.PI };
+    };
+    const setMix = value => {
+      blendUniforms.frontMix.value = clamp(value, 0, 1);
+      if (!raf && alive) render();   // the loop is asleep when the card is at rest, so draw once
+    };
+    const nudge = amount => {
+      if (!alive || reducedMotion) return;
+      sim.body.angular.x += amount;
+      start();
+    };
+    if (ctl) {
+      ctl.current = ctl.current || {};
+      blendUniforms.frontMix.value = clamp(ctl.current.mix ?? 0, 0, 1);
+      Object.assign(ctl.current, { setMix, getPhotoRect, nudge });
+    }
     resize();
 
     return () => {
       alive = false;
       cancelAnimationFrame(raf);
       applyRef.current = null;
+      if (ctl?.current) { ctl.current.setMix = undefined; ctl.current.getPhotoRect = undefined; ctl.current.nudge = undefined; }
       resizeObserver.disconnect();
       intersectionObserver.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
@@ -1325,7 +1396,7 @@ const Lanyard = ({
       window.removeEventListener('pointermove', onWindowMove);
       [bodyMesh, frontMesh, backMesh, ring, clampMesh, eyelet, band].forEach(mesh => mesh.geometry?.dispose());
       [frontMaterial, backMaterial, edgeMaterial, metalMaterial, bandMaterial].forEach(material => material.dispose());
-      [frontTexture, backTexture, strapTexture, grain, weave].forEach(texture => texture.dispose());
+      [frontTexture, frontTextureB, backTexture, strapTexture, grain, weave].forEach(texture => texture.dispose());
       environment.dispose();
       renderer.dispose();
       if (canvas.parentNode) canvas.parentNode.removeChild(canvas);

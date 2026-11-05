@@ -144,7 +144,12 @@ const DecoShape = ({ d }) => (
 const FLYER_CLASS = 'pointer-events-none absolute left-0 top-0 z-20 max-w-none select-none';
 const FLYER_STYLE = { visibility: 'hidden', transformOrigin: '50% 100%', filter: 'drop-shadow(0 22px 20px rgba(33,37,41,.28)) drop-shadow(0 4px 6px rgba(33,37,41,.18))' };
 
-const HANDOVER = 0.995;       // how far through her landing the badge's own photo takes over from the flying copy (she is virtually still by then)
+/* THE LANDING (smooth hand-over). While she flies, her end point is read from the live 3D card every tick (its real position, size and tilt),
+   so she lands exactly on the picture printed on the badge, even if the badge is swinging. Once she has arrived, the flying copy and the badge's own
+   photo are cross-faded over time (not scroll), so a fast flick of the wheel can't make it snap. Both pictures are already decoded and on the GPU. */
+const LAND_FADE_IN = 0.45;     // seconds for the badge's own photo to take over once she has arrived
+const LAND_FADE_OUT = 0.2;     // seconds to go back the other way when scrolling up
+const LAND_NUDGE = 0.35;       // a tiny sway of the badge as she settles on it (0 = none)
 
 
 /* does the hero fit on the screen? Only then can it be pinned while the doctor travels (a taller hero would be cut off) */
@@ -166,7 +171,7 @@ function useHeroFits() {
 export default function DoctorProfile() {
   const section = useRef(null);
   const heroFits = useHeroFits();
-  const { stage, overlay, overlayOn, setPhotoOn, sequence } = useLanyardBadge();
+  const { stage, overlay, overlayOn, ctl: badgeCtl, sequence } = useLanyardBadge();
   const flyer = useRef(null);       // the doctor while the profile section is pinned (inside the section)
   const heroFlyer = useRef(null);   // the doctor while the hero is pinned (inside the hero, so scrolling never moves it)
   const stageBox = useRef(null);
@@ -238,7 +243,9 @@ export default function DoctorProfile() {
     /* phones / tablets: how far she has travelled = how far the page has scrolled towards the point where the profile pins,
        so she arrives (at her own size, centred on the spiral) exactly as the spiral begins. Desktop keeps the quick ramp. */
     const rampP = (pr) => (compact ? clamp(window.scrollY / Math.max(1, (m.leadStart || hero.offsetTop + SPIRAL_START * hero.offsetHeight) * TRAVEL)) : ramp(pr));   // phones: exactly as far as the page has scrolled, no easing
-    let heroTrig = null; let preTrig = null; let secTrig; let wasMoving = false; let photoShown = false;
+    let heroTrig = null; let preTrig = null; let secTrig; let wasMoving = false;
+    const fx = { t: 0 };          // the hand-over (0 = flying copy only, 1 = the badge's own photo only), animated with time
+    let fxWant = 0; let lastMix = -1; let lastShadow = -1;
     let glide = null;             // phones: which way the doctor last glided (true = to the centre, false = back to her hero place)
 
     const measure = () => {
@@ -256,6 +263,7 @@ export default function DoctorProfile() {
       const hr = heroImg.getBoundingClientRect();
       const feet = light ? hr.bottom + window.scrollY : hr.bottom + Math.max(0, window.scrollY - heroTrig.end);   // light: her feet's place on the page
       m.x0 = hr.left + hr.width / 2;
+      m.hw = hr.width; m.hh = hr.height;      // the flying copy's natural size (the live badge photo is measured against it)
       m.feet0 = hr.bottom + window.scrollY;   // her feet on the screen when the page is at the top (phones hold her exactly here)
       m.feet = feet;
       m.xc = m.W / 2;
@@ -308,6 +316,16 @@ export default function DoctorProfile() {
       /* the doctor: desktop = hero → middle (staying on screen) → badge. Phones / tablets = the hero is not touched at all; she just
          comes down to the middle of the screen (no zoom) while the hero scrolls up, then (with the spiral) lands on the badge. */
       const u = smooth(clamp((p - 0.8) / 0.18));
+      /* hand-over: once she has fully arrived the badge's own photo is blended in on the GPU while the flying copy fades out (time-based, with a little hysteresis) */
+      const want = u >= 0.999 ? 1 : u < 0.97 ? 0 : fxWant;
+      if (want !== fxWant) {
+        fxWant = want;
+        gsap.to(fx, { t: want, duration: want ? LAND_FADE_IN : LAND_FADE_OUT, ease: 'power2.inOut', overwrite: true, onUpdate: render });
+        if (want && LAND_NUDGE) badgeCtl.current.nudge?.(LAND_NUDGE);
+      }
+      const cardMix = smooth(clamp(fx.t / 0.6));                    // the badge's photo is fully in first…
+      const flyOp = 1 - smooth(clamp((fx.t - 0.55) / 0.45));        // …then the flying copy fades away on top of an identical picture
+      if (Math.abs(cardMix - lastMix) > 0.002) { lastMix = cardMix; badgeCtl.current.mix = cardMix; badgeCtl.current.setMix?.(cardMix); }
       if (compact) {
         /* Two copies of her, never both visible:
            - until the spiral starts: the copy at page level (outside every section, so the pins never move it), fixed on the screen exactly
@@ -324,26 +342,42 @@ export default function DoctorProfile() {
           const k = smooth(tA);
           x = lerp(m.x0, m.xc, k); y = lerp(m.feet0, m.endFeet, k); sc = 1;
         }
-        const op = u > HANDOVER ? 0 : 1;
+        const op = flyOp;
         if (flyH) gsap.set(flyH, { x, y, scale: sc, opacity: op, visibility: flyingNow && !inSpiral ? 'visible' : 'hidden' });
         gsap.set(fly, { x: x - m.left, y: y - T, scale: sc, opacity: op, visibility: inSpiral ? 'visible' : 'hidden', zIndex: u > 0 ? 50 : 20 });   // y - T: section coordinates (T is 0 once pinned); above the badge while she lands on it
       } else {
         const hidden = !flying && p === 0;
         heroCut.style.visibility = hidden ? '' : 'hidden';
-        const x = lerp(lerp(m.x0, m.xc, e), m.cx, u);
+        /* where she lands: read from the live 3D card (feet centre, size, tilt), or the measured guess until the card is running */
+        const live = u > 0 ? badgeCtl.current.getPhotoRect?.() : null;
+        const tx = live ? live.x : m.cx;
+        const ty = live ? live.y : m.cfeet;
+        const tsx = live ? live.w / m.hw : m.cs;
+        const tsy = live ? live.h / m.hh : m.cs;
+        const sc0 = lerp(1, m.K, e);
+        const x = lerp(lerp(m.x0, m.xc, e), tx, u);
         const look = {
-          y: lerp(lerp(light ? m.feet - window.scrollY : m.feet, m.endFeet, e), m.cfeet, u),
-          scale: lerp(lerp(1, m.K, e), m.cs, u),
-          opacity: u > HANDOVER ? 0 : 1,   // one picture at a time: she and the badge's own photo swap in the same instant
+          y: lerp(lerp(light ? m.feet - window.scrollY : m.feet, m.endFeet, e), ty, u),
+          scaleX: lerp(sc0, tsx, u),
+          scaleY: lerp(sc0, tsy, u),
+          rotation: live ? live.rot * u : 0,
+          opacity: flyOp,
         };
+        /* her shadow fades out on the way in (the badge's photo has none), in 20 steps so the filter is not re-rasterised every tick */
+        if (!light) {
+          const sh = Math.round((1 - smooth(clamp((u - 0.5) / 0.5))) * 20);
+          if (sh !== lastShadow) {
+            lastShadow = sh;
+            const k = sh / 20;
+            gsap.set([fly, flyH].filter(Boolean), { filter: `drop-shadow(0 ${22 * k}px ${20 * k}px rgba(33,37,41,${0.28 * k})) drop-shadow(0 ${4 * k}px ${6 * k}px rgba(33,37,41,${0.18 * k}))` });
+          }
+        }
         /* two copies hand over at the moment the spiral starts: the hero's while the hero is pinned, the section's after */
         const inSection = window.scrollY >= secTrig.start - 1;   // judged by the real scroll position, so scrolling back up hands her to the hero at once
         if (flyH) gsap.set(flyH, { ...look, x, visibility: flying && !inSection ? 'visible' : 'hidden' });
         gsap.set(fly, { ...look, x: x - m.left, visibility: inSection ? 'visible' : 'hidden', zIndex: u > 0 ? 50 : 20 });   // above the badge while she lands on it / leaves it
       }
       gsap.set(overlayOn ? overlayBox.current : stageBox.current, { opacity: smooth(clamp(u / 0.35)) });   // the badge shows up as she starts to shrink towards it
-      const showPhoto = u > HANDOVER;
-      if (showPhoto !== photoShown) { photoShown = showPhoto; setPhotoOn(showPhoto); }
       gsap.set(bgEl, { opacity: smooth(clamp(p / 0.12)) });
       /* the falling pieces: each one falls with the scroll along its lane (left or right of the spiral), swaying a little and turning,
          fading at the top and bottom of the screen. In with the spiral, out as it settles. Transforms and opacity only. */
@@ -451,6 +485,7 @@ export default function DoctorProfile() {
       cleanup: () => {
         ScrollTrigger.removeEventListener('refresh', remeasure);
         dbgEl?.remove();   // DBG
+        gsap.killTweensOf(fx);
         ctx.revert();
         gsap.set(leaving, { clearProps: 'transform,opacity' });
         gsap.set(decos, { clearProps: 'transform,opacity,zIndex' });
