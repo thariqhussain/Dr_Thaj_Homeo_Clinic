@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 import { gsap, ScrollTrigger } from '../lib/gsap';
 import { introDone, onIntro } from '../lib/intro';
 import { useMagnetic } from '../hooks/useMagnetic';
-import { canHover, prefersReducedMotion } from '../lib/utils';
+import { prefersReducedMotion } from '../lib/utils';
 import './DoctorCard.css';
 
 /* Doctor card on the right of the hero: pop-out portrait, overlapping name plate, bio, CTA.
@@ -13,15 +13,10 @@ const PHOTO = '/assets/doctors/drThaj.webp';             // transparent cut-out 
 const PHOTO_SMALL = '/assets/doctors/drThaj-640.webp';       // phone-sized copy of the same cut-out
 const PHOTO_ALT = '/assets/doctors/drThajGreySuit.webp';    // transparent cut-out revealed on hover
 
-/* which hover effect brings in the second photo:
-   'water' = water ripple (WebGL)  |  'ink' = ink-trail reveal (canvas)  |  'focus' = soft focus pull (CSS)  |  'lens' = spotlight lens (WebGL) */
-const HOVER_EFFECT = 'water';
-/* each effect is its own chunk and only the chosen one is ever downloaded (after the hero has painted) */
+/* hover swap to the second photo: light CSS-only soft focus pull (the heavy WebGL water ripple was removed for low-end laptops) */
+const HOVER_EFFECT = 'focus';
 const EFFECT_LOADERS = {
-  water: () => import('../lib/waterReveal').then((m) => m.createWaterReveal),
-  ink: () => import('../lib/inkTrail').then((m) => m.createInkTrail),
   focus: () => import('../lib/focusPull').then((m) => m.createFocusPull),
-  lens: () => import('../lib/spotlightLens').then((m) => m.createSpotlightLens),
 };
 
 export default function DoctorCard() {
@@ -57,23 +52,6 @@ export default function DoctorCard() {
         tryPlay();
       }, 5000);
 
-      /* pointer-only: the arch tilts, and the pop-out cut-out slides the opposite way for depth */
-      if (canHover()) {
-        const visual = card.current.querySelector('.dc-visual');
-        const arch = card.current.querySelector('.dc-arch');
-        const cut = card.current.querySelector('.dc-cut');
-        const rx = gsap.quickTo(arch, 'rotationX', { duration: 0.6, ease: 'power3.out' });
-        const ry = gsap.quickTo(arch, 'rotationY', { duration: 0.6, ease: 'power3.out' });
-        const px = gsap.quickTo(cut, 'x', { duration: 0.7, ease: 'power3.out' });
-        const py = gsap.quickTo(cut, 'y', { duration: 0.7, ease: 'power3.out' });
-        visual.addEventListener('pointermove', (e) => {
-          const r = visual.getBoundingClientRect();
-          const nx = (e.clientX - r.left) / r.width - 0.5, ny = (e.clientY - r.top) / r.height - 0.5;
-          ry(nx * 10); rx(-ny * 10);
-          px(-nx * 14); py(-ny * 10);
-        });
-        visual.addEventListener('pointerleave', () => { rx(0); ry(0); px(0); py(0); });
-      }
     }, card);
     return () => { offNav(); ctx.revert(); };
   }, []);

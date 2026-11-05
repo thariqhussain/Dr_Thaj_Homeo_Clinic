@@ -24,15 +24,12 @@
 
 /* ── photo ── */
 /* the photo stretches to the text column's height, plus --dc-extend above and below it */
-.dc-visual { position: relative; width: 100%; margin-block: calc(var(--dc-extend) * -1); perspective: 900px; }
+.dc-visual { position: relative; width: 100%; margin-block: calc(var(--dc-extend) * -1); }
 .dc-ring {
   position: absolute; left: -5cqw; top: -5cqw; width: calc(100% + 10cqw); height: auto;
   color: #5a8a6a; opacity: .7; pointer-events: none;
-  animation: dc-spin 40s linear infinite;
 }
 .dc-arch { position: relative; height: 100%; }
-/* the 3D tilt only exists for a mouse, so touch devices don't keep a 3D layer alive for it */
-@media (hover: hover) and (pointer: fine) { .dc-arch { transform-style: preserve-3d; will-change: transform; } }
 .dc-arch-clip {
   position: relative; width: 100%; height: 100%; min-height: 70cqw; overflow: hidden;
   border-radius: 25cqw 25cqw 3cqw 3cqw; background: #dff0e6;
@@ -46,7 +43,6 @@
   --dc-photo-w: 110%;
   position: absolute; z-index: 1; left: 0; right: 0; bottom: 0;
   display: flex; justify-content: center;
-  transform: translateZ(40px);                       /* real depth when the arch tilts */
   clip-path: inset(-70% -45% 0 -45%);
   filter: drop-shadow(0 22px 20px rgba(33,37,41,.28)) drop-shadow(0 4px 6px rgba(33,37,41,.18));
 }
@@ -99,12 +95,9 @@
 }
 .dc-plate {
   margin: 0 -14cqw 3cqw 0; padding: 2.8cqw 5.5cqw 1.8cqw 4.5cqw; border-radius: 3.4cqw;
-  border: 1.5px solid transparent;
-  background:
-    linear-gradient(#fbfcfa, #fbfcfa) padding-box,
-    conic-gradient(from var(--dc-angle), #5a8a6a, rgba(90,138,106,.08) 35%, #5a8a6a 70%, rgba(90,138,106,.08)) border-box;
+  border: 1.5px solid rgba(90,138,106,.55);
+  background: #fbfcfa;
   box-shadow: 0 24px 50px -22px rgba(33,37,41,.35);
-  animation: dc-angle 7s linear infinite;
 }
 .dc-name {
   margin: 0; font-family: 'DM Serif Display', Georgia, serif; font-weight: 400;
@@ -141,12 +134,6 @@
 
 .dc .is-paused { animation-play-state: paused !important; }
 
-@property --dc-angle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
-@keyframes dc-angle { to { --dc-angle: 360deg; } }
-@keyframes dc-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) {
-  .dc-ring, .dc-plate { animation: none; }
-}
 
 /* ════════════════════════════════════════════════════════════
    PHONES  (kept at the end so it overrides the rules above)
