@@ -5,7 +5,7 @@ import { useMagnetic } from '../hooks/useMagnetic';
 import SocialLinks from './SocialLinks';
 import { prefersReducedMotion } from '../lib/utils';
 
-const MARQUEE = ['Thyroid', 'Asthma', 'Migraine', 'Joint Pain', 'Eczema', 'Digestive Care', "Women's Health", 'Child Health'];
+const MARQUEE = ['Thyroid', 'Asthma', 'Migraine', 'Joint Pain', 'Eczema', 'Digestive Care', "Women's Health", 'Child Health', "Cupping Therapy", "Acupuncture"];
 const WORD = 'Dr. Thaj';
 /* consultation + pharmacy hours (days and sessions), read from content.js → PHARMACY.hours. A row with no time is skipped.
    When every row runs on the same days, the days are shown once under the heading to save space. */
