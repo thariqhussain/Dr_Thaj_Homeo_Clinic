@@ -906,6 +906,7 @@ const Lanyard = ({
     let visible = true;
     let alive = true;
     let placed = false;
+    let hasB = false;   // is there a second front picture to blend in? (if not, its canvas stays 1×1 and costs nothing)
     let hovering = false;
     let press = null;
     let imageToken = 0;
@@ -922,15 +923,22 @@ const Lanyard = ({
         frontCanvas.height = height;
         backCanvas.width = width;
         backCanvas.height = height;
-        frontCanvasB.width = width;
-        frontCanvasB.height = height;
         frontTexture.dispose();
-        frontTextureB.dispose();
         backTexture.dispose();
       }
+      hasB = !!images.frontB;
+      const bw = hasB ? width : 1;
+      const bh = hasB ? height : 1;
+      if (frontCanvasB.width !== bw || frontCanvasB.height !== bh) {
+        frontCanvasB.width = bw;
+        frontCanvasB.height = bh;
+        frontTextureB.dispose();
+      }
       paintFace(frontCanvas, images.front, color, s.imageFit);
-      paintFace(frontCanvasB, images.frontB || images.front, color, s.imageFit);
+      paintFace(frontCanvasB, images.frontB, color, s.imageFit);
       frontTextureB.needsUpdate = true;
+      const wanted = settingsRef.current.controlRef?.current?.mix ?? 0;
+      blendUniforms.frontMix.value = hasB ? clamp(wanted, 0, 1) : 0;
       paintFace(backCanvas, images.back || images.front, color, s.imageFit);
       frontTexture.needsUpdate = true;
       backTexture.needsUpdate = true;
@@ -1367,7 +1375,7 @@ const Lanyard = ({
       return { x: r.left + bx, y: r.top + by, w: Math.hypot(rx - lx, ry - ly), h: Math.hypot(tx - bx, ty - by), rot: (Math.atan2(tx - bx, -(ty - by)) * 180) / Math.PI };
     };
     const setMix = value => {
-      blendUniforms.frontMix.value = clamp(value, 0, 1);
+      blendUniforms.frontMix.value = hasB ? clamp(value, 0, 1) : 0;
       if (!raf && alive) render();   // the loop is asleep when the card is at rest, so draw once
     };
     const nudge = amount => {
@@ -1377,7 +1385,7 @@ const Lanyard = ({
     };
     if (ctl) {
       ctl.current = ctl.current || {};
-      blendUniforms.frontMix.value = clamp(ctl.current.mix ?? 0, 0, 1);
+      blendUniforms.frontMix.value = hasB ? clamp(ctl.current.mix ?? 0, 0, 1) : 0;
       Object.assign(ctl.current, { setMix, getPhotoRect, nudge });
     }
     resize();

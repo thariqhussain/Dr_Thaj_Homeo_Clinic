@@ -97,8 +97,8 @@ function roundedRect(ctx, x, y, w, h, r) {
 
 /* Face sharpness: the faces are still DESIGNED on a 1024×1440 grid (every coordinate below is unchanged), but the canvas is
    FACE_SCALE times bigger and the context is scaled to match, so text, logo and photo are rasterised at full detail.
-   2 = 2048×2880 (desktop), 1.5 on phones to save GPU memory. Lower it if scrolling ever gets heavy. */
-const FACE_SCALE = (typeof window !== 'undefined' && window.matchMedia?.('(max-width: 767px)').matches) ? 1.5 : 2;
+   2 = 2048×2880 on every screen (phones too: their canvas is only the badge, so it is cheap). Lower it if scrolling ever gets heavy. */
+const FACE_SCALE = 2;
 
 function newFace(color) {
   const c = document.createElement('canvas');
@@ -385,7 +385,7 @@ const loadPhoto = (src) => new Promise((resolve) => {
 });
 
 /* hidden QR canvases + font probes → painted faces → the 3D badge */
-function QrBadge({ items, overlay = false, anchor = 0.5, phone = false, ctl }) {
+function QrBadge({ items, overlay = false, anchor = 0.5, phone = false, ctl, blend = false }) {
   const dispRef = useRef(null);
   const bodyRef = useRef(null);
   const hitsRef = useRef([]);                       // where each logo tile is on the back face (picture pixels)
@@ -417,13 +417,14 @@ function QrBadge({ items, overlay = false, anchor = 0.5, phone = false, ctl }) {
          the scroll sequence shows the empty front until the doctor lands, then blends her in, with nothing left to decode at that moment. */
       const withDoctor = photo ? drawFront(photo, clinicLogo, fonts) : back.url;
       const box = photo ? PHOTO_BOX : null;
-      const without = photo ? drawFront(null, clinicLogo, fonts) : back.url;
+      /* the empty front is only needed while the scroll sequence blends her in; everywhere else it is skipped (less painting, one texture less on the GPU) */
+      const without = blend && photo ? drawFront(null, clinicLogo, fonts) : null;
       setPhotoBox(box);
       setFaces([withDoctor, without, back.url]);
     })();
     return () => { off = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, blend]);
 
   /* a tap on a logo tile opens its page; anything else on the card flips it (the badge asks with probe = true while hovering, to show a pointer) */
   const onFaceClick = (face, px, py, probe) => {
@@ -444,10 +445,10 @@ function QrBadge({ items, overlay = false, anchor = 0.5, phone = false, ctl }) {
       {faces && (
         <Suspense fallback={null}>
           <Lanyard
-            frontImage={faces[1]} frontImageB={faces[0]} photoBox={photoBox} controlRef={ctl} backImage={faces[2]} imageFit="cover" onFaceClick={onFaceClick}
+            frontImage={blend && faces[1] ? faces[1] : faces[0]} frontImageB={blend && faces[1] ? faces[0] : undefined} photoBox={photoBox} controlRef={ctl} backImage={faces[2]} imageFit="cover" onFaceClick={onFaceClick}
             cardColor={CARD_MID} finish="matte" strapColor={STRAP} strapImage={strap || undefined} strapWidth={0.75}
             size={overlay ? 0.48 : phone ? 0.66 : 0.6} strapLength={overlay ? 0.6 : 0.5} touchScroll={!overlay} anchor={overlay ? anchor : 'center'}
-            passThrough={overlay} maxDpr={phone ? 1.5 : 2}
+            passThrough={overlay} maxDpr={2}
             className="absolute inset-0"
           />
         </Suspense>
@@ -536,7 +537,7 @@ export default function useLanyardBadge({ heroFits = true } = {}) {
   const overlay = overlayOn && near && items.length > 0 && (
     <div className="pointer-events-none absolute inset-0 z-20">
       <div ref={overlayRef} className="absolute inset-x-0 top-0 h-[100svh] max-h-full">
-        <QrBadge items={items} overlay anchor={anchor} ctl={ctl} />
+        <QrBadge items={items} overlay anchor={anchor} ctl={ctl} blend={sequence} />
       </div>
     </div>
   );
